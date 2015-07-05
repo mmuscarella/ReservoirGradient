@@ -36,10 +36,13 @@ metab <- cbind(metab, BGE)
 png(filename="/Users/lennonj/GitHub/ResGrad/figures/Figure1.png",
     width = 1200, height = 1200, res = 96*2)
 
-par(mar = c(1, 10, 1, 10), mfrow=c(3,1))
+par(mfrow = c(1,1), mar = c(1, 7, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
+bar.layout <- layout(rbind(1, 2, 3), height = c(4, 4, 4)) 
+#layout.show(bar.layout)
 
-# Baterial Producivity
-plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), xlim = c(0, 400),
+# Baterial Producivity (BP)
+
+plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), xlim = c(-15, 400),
      cex = 2, bg = "white", col = "black", cex.lab = 2, las = 1, lwd = 2,
      yaxt = "n", xaxt = "n")
 box(lwd = 2)
@@ -59,18 +62,29 @@ axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1,
 axis(side = 3, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
    at = c(0, 100, 200, 300, 400))
 
-# Bacterial Respiration
+mtext(expression(paste('BP (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.5)
 
-plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0, 3.5), xlim = c(0, 400),
+# Quadratic regression for BP
+dist <- metab$dist
+dist2 <- metab$dist^2
+BP.fit <- lm(metab$BP ~ dist + dist2)
+dist.vals <- seq(0, 375, 25)
+BP.pred <- predict(BP.fit,list(dist = dist.vals, dist2 = dist.vals^2))
+lines(dist.vals, BP.pred, col = "black", lwd = 2.5, lty = 6)
+text(40, 1.8, labels = expression(r^2 == "0.40"), cex = 1.5)
+
+# Bacterial Respiration (BR)
+
+plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0.75, 3.75), xlim = c(-15, 400),
      cex = 2, bg = "white", col = "black", cex.lab = 2, las = 1, lwd = 2,
      yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0.0", "1.5", "3.0"), at = c(0, 1.5, 3.0))
+    labels = c("1.0", "2.0", "3.0"), at = c(1, 2, 3))
                               
 axis(side = 4, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 1.5, 3))
+   at = c(1, 2, 3))
 
 axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
    at = c(0, 100, 200, 300, 400))
@@ -78,9 +92,19 @@ axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1,
 axis(side = 3, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
    at = c(0, 100, 200, 300, 400))
 
+mtext(expression(paste('BR (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.5)
+
+# Simple linear regression for BR
+BR.fit <- lm(metab$BR ~ metab$dist)
+BR.int <- BR.fit$coefficients[1]
+BR.slp <- BR.fit$coefficients[2]
+clip(0, 375, 0, 3.75)
+abline(a = BR.int, b = BR.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, 3.5, labels = expression(r^2 == 0.75), cex = 1.5)
+
 # Bacterial Growth Efficiency
 
-plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), xlim = c(0, 400),
+plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), xlim = c(-15, 400),
      cex = 2, bg = "white", col = "black", cex.lab = 2, las = 1, lwd = 2,
      yaxt = "n", xaxt = "n")
 box(lwd = 2)
@@ -91,11 +115,22 @@ axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
 axis(side = 4, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
    at = c(0, 0.3, 0.6))
 
-axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
+axis(side = 1, lwd.ticks = 2,  cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
+   labels = c("0", "100", "200", "300", "400"), at = c(0, 100, 200, 300, 400))
+
+axis(side = 3, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, 
    at = c(0, 100, 200, 300, 400))
 
-axis(side = 3, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 100, 200, 300, 400))
+mtext("BGE", side = 2, line = 4, cex = 1.5)
+mtext("Distance (m)", side = 1, line = 4, cex = 1.5)
+
+# Simple linear regression for BGE
+BGE.fit <- lm(metab$BGE ~ metab$dist)
+BGE.int <- BGE.fit$coefficients[1]
+BGE.slp <- BGE.fit$coefficients[2]
+clip(0, 375, 0, 0.58)
+abline(a = BGE.int, b = BGE.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, 0.535, labels = expression(r^2 == 0.23), cex = 1.5)
 
 dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices

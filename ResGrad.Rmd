@@ -14,6 +14,7 @@ Project looking at microbial composition and processes along a reservoir gradien
 rm(list=ls())
 getwd()
 setwd("/Users/lennonj/GitHub/ResGrad")
+#setwd("C:/Users/Megan/Github/ReservoirGradient")
 ```
 
 ```{r}
@@ -134,4 +135,45 @@ text(40, 0.535, labels = expression(r^2 == 0.23), cex = 1.5)
 
 dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
+```
+
+## FIGURES: NUTRIENT PATTERNS ACROSS DAM
+```{r}
+require(ggplot2); require(ggmap)
+require(reshape); require(plyr)
+require(rgdal); require(maptools)
+require(raster); require(akima)
+
+# Load environmental data
+env.dat <- read.csv("./data/ResGrad_EnvDat.csv", header = TRUE)
+env.dat <- env.dat[-16,]
+
+# Import University Lake Polygon
+ul <- readOGR("./maps","UniversityLakePoly")
+summary(ul) # Check projection and and datum
+#ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
+ul <- fortify(ul) # raster image for plotting with ggplot2
+
+# Download the map from GoogleMaps API - higher quality image than with RgoogleMaps
+theMap <- get_map(location = c(lon = -86.503087, lat = 39.188686), 
+                  zoom = 17, maptype = "terrain", 
+                  source = "google", messaging = F, color = "bw")
+base.map <- ggmap(theMap, extent = "device", legend = "topleft")
+print(base.map)
+
+# plot map with polygon and sample points
+samples <- geom_point(
+  aes(x = long, y = lat),
+  size = 3, data = env.dat)
+
+ul.pol <- geom_polygon(
+  aes(x = long, y = lat, group = group), 
+  fill = 'grey', size = 0.5,
+  color = 'black', data = ul, alpha=1)
+
+base.map + ul.pol + samples
+
+# Create the gradient contours for the plot
+# Add color?
+
 ```

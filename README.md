@@ -23,6 +23,17 @@ This repository contains open-source code, data, & text files for
 	* Respiration: Contains raw output files (.txt) from PreSens SensorDish Oxygen system
 	* GrowthCurves: Contains raw output files (.txt) from BioTek Synergy MX plate reader. 
 	* DeathCurves: Contains plate count data from long term starvation experiments
+	* Environmental data: Contains data collected from the hydrolab and calculated environmental data
+		* UTM lat/long; WGS84
+		* distance to dam (m)
+		* water temperature (C)
+		* Specific conductivity (SpC; ms/cm)
+		* Dissolved Oxygen (DO; mg/L)
+		* pH
+		* Total Phosphorus (TP; µg P/L)
+		* Respiration Rate (µM O2 Hr-1)
+		* Chlorphyll a ()
+
 
 * **figures:**
 

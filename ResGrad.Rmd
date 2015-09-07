@@ -1,6 +1,6 @@
 ---
 title: "Reservoir Gradient"
-author: "Jay T. Lennon""
+author: "Jay T. Lennon, Megan Larsen, Mario E. Muscarella"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 header-includes:
    - \usepackage{array}
@@ -13,8 +13,7 @@ Project looking at microbial composition and processes along a reservoir gradien
 ```{r}
 rm(list=ls())
 getwd()
-setwd("/Users/lennonj/GitHub/ResGrad")
-#setwd("C:/Users/Megan/Github/ReservoirGradient")
+setwd("~/GitHub/ReservoirGradient")
 ```
 
 ```{r}
@@ -34,7 +33,7 @@ metab <- cbind(metab, BGE)
 
 # FIGURE 1: METABOLISM ALONG GRADIENT
 ```{r}
-png(filename="/Users/lennonj/GitHub/ResGrad/figures/Figure1.png",
+png(filename="./figures/Figure1.png",
     width = 1200, height = 1200, res = 96*2)
 
 par(mfrow = c(1,1), mar = c(1, 7, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
@@ -149,7 +148,7 @@ env.dat <- read.csv("./data/ResGrad_EnvDat.csv", header = TRUE)
 env.dat <- env.dat[-16,]
 
 # Import University Lake Polygon
-ul <- readOGR("./maps","UniversityLakePoly")
+ul <- readOGR("./maps","UniversityLake")
 summary(ul) # Check projection and and datum
 #ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
 ul <- fortify(ul) # raster image for plotting with ggplot2

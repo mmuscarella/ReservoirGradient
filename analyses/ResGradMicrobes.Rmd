@@ -1,0 +1,93 @@
+---
+title: "Reservoir Gradient: Microbial Communities"
+author: "Jay T. Lennon, Megan L. Larsen, Mario E. Muscarella"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+header-includes:
+   - \usepackage{array}
+output: pdf_document
+geometry: margin=2.54cm
+---
+
+Project looking at microbial composition and processes along a reservoir gradient
+
+# Initial Setup
+```{r}
+rm(list=ls())
+setwd("~/GitHub/ReservoirGradient")
+source("../bin/MothurTools.R")
+require("vegan")
+se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+```
+
+# Import Shared and Design Files
+```{r}
+# Define Inputs
+# Design = general design file for experiment
+# shared = OTU table from mothur with sequence similarity clustering
+# Taxonomy = Taxonomic information for each OTU
+design <- "../data/UL.design.txt"
+shared <- "../data/UL.bac.final.shared"
+taxon  <- "../data/UL.bac."
+
+# Import Design
+design <- read.delim(design, header=T, row.names=1)
+
+# Import Shared Files
+OTUs <- read.otu(shared = shared, cutoff = "0.03")         # 97% Similarity
+```
+
+# Data Transormations
+```{r}
+# Remove OTUs with less than two occurances across all sites
+OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
+
+
+```
+
+
+
+# Calculate Alpha Diversity
+```{r}
+# Observed Richness
+S.obs <- rowSums((OTUs > 0) * 1)
+
+# Coverage
+C <- function(x = ""){
+  1 - (sum(x == 1) / rowSums(x))
+}
+C(OTUs)
+
+# Simpson's Evenness
+SimpE <- function(x = ""){
+  x <- as.data.frame(x)
+  D <- diversity(x, "inv")
+  S <- sum((x > 0) * 1) 
+  E <- (D)/S 
+  return(E)
+}
+apply(OTUs, 1, SimpE)
+
+# Diversity
+H <- function(x = ""){
+  x <- x[x>0]
+  H = 0
+  for (n_i in x){
+    p = n_i / sum(x)
+    H = H - p*log(p) 
+  }
+  return(H)
+}
+
+apply(OTUs, 1, H)
+diversity(OTUs, index = "shannon")
+
+
+```
+
+
+# Alpha Diversity Plots
+```{r}
+# Richness across Reservoir Gradient
+
+
+

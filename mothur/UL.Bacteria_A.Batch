@@ -17,7 +17,7 @@ unique.seqs(fasta=UL.trim.contigs.good.unique.good.filter.fasta, count=UL.trim.c
 summary.seqs(fasta=UL.trim.contigs.good.unique.good.filter.unique.fasta, count=UL.trim.contigs.good.unique.good.filter.count_table, processors=8)
 pre.cluster(fasta=UL.trim.contigs.good.unique.good.filter.unique.fasta, count=UL.trim.contigs.good.unique.good.filter.count_table, diffs=2, processors=1)
 summary.seqs(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.fasta, count=UL.trim.contigs.good.unique.good.filter.unique.precluster.count_table, processors=8)
-chimera.uchime(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.fasta, reference=silva.gold.ng.fasta, processors=8)
+chimera.uchime(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.fasta, reference=silva.gold.align, processors=8)
 remove.seqs(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.fasta, count=UL.trim.contigs.good.unique.good.filter.unique.precluster.count_table, accnos=UL.trim.contigs.good.unique.good.filter.unique.precluster.ref.uchime.accnos)
 summary.seqs(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.pick.fasta, count=UL.trim.contigs.good.unique.good.filter.unique.precluster.pick.count_table, processors=8)
 classify.seqs(fasta=UL.trim.contigs.good.unique.good.filter.unique.precluster.pick.fasta, count=UL.trim.contigs.good.unique.good.filter.unique.precluster.pick.count_table, reference=silva.bacteria.fasta, taxonomy=silva.bacteria.silva.tax, cutoff=80, probs=f, processors=8)

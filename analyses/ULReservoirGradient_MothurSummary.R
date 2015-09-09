@@ -6,7 +6,7 @@
 #                                                                              #
 #  Written by: Mario Muscarella                                                #
 #                                                                              #
-#	Last update: 2015/05/20                                                      #
+#	Last update: 2015/09/09                                                      #
 #                                                                              #
 ################################################################################
 #                                                                              #
@@ -29,25 +29,25 @@
 
 # Setup Work Environment
 rm(list=ls())
-setwd("~/GitHub/IL_Wetlands/analyses")
+setwd("~/GitHub/ReservoirGradient/analyses")
 source("../bin/MothurTools.R")
 require("vegan")
-se <- function(x, ...){sd(x, ...)/sqrt(length(na.omit(x)))}
+se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 
 # Define Inputs
 # Design = general design file for experiment
 # shared = OTU table from mothur with sequence similarity clustering
-# design <- ""
-shared <- "../mothur/UL.final.shared"
+design <- "../data/UL.design.txt"
+shared <- "../data/UL.bac.final.shared"
 
 # Import Design
-# design <- read.delim(design, header=T, row.names=1)
+design <- read.delim(design, header=T, row.names=1)
 
 # Import Shared Files
 OTUs <- read.otu(shared = shared, cutoff = "0.03")         # 97% Similarity
 
 # Remove OTUs with less than two occurances across all sites
-OTUs <- Pond97[, which(colSums(OTUs) >= 2)]
+OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 
 # Coverage Stats
 coverage <- rowSums(OTUs)
@@ -56,11 +56,11 @@ summary(coverage)
 # Make Presence Absence Matrices
 OTUsPA <- (OTUs > 0) * 1
 
-rich <- rowSums(OTUs)
+rich <- rowSums(OTUsPA)
 summary(rich)
 
 # Make Relative Abundence Matrices
 OTUsREL <- OTUs
-for(i in dim(OTUs)[1]){
-  OTUs[i,]<-OTUs[i,]/sum(OTUs[i,])
+for(i in 1:dim(OTUs)[1]){
+  OTUsREL[i,]<- OTUs[i,]/sum(OTUs[i,])
 }

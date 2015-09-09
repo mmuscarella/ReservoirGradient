@@ -6,16 +6,17 @@
 #                                                                              #
 # Written by: Mario Muscarella                                                 #
 #                                                                              #
-# Last update: 2015/02/22                                                      #
+# Last update: 2015/09/09                                                      #
 #                                                                              #
 ################################################################################
 #                                                                              #
-# Notes: This code provides functions to be used in the analysis of   #
-#        16S rRNA sequence data post mothur anlaysis                           #
+# Notes: This code provides functions to be used in the analysis of            #
+#        16S rRNA sequence data post mothur pipeline                           #
 #                                                                              #
 # Issues: Slow performance reading in OTU tables (common R issue)              #
 #                                                                              #
-# Recent Changes:                                                              #
+# Recent Changes:
+#         1. Added colclasses to read.otu                                      #
 #                                                                              #
 # Future Changes (To-Do List):                                                 #
 #         1. Design functions to work with shared files in memory              #
@@ -27,7 +28,10 @@ require("reshape")||install.packages("reshape");require("reshape")
 
 # Import OTU Site-by-Species Matrix
 read.otu <- function(shared = " ", cutoff = "0.03"){
-  matrix <- read.table(shared, header=T, fill=TRUE, comment.char="", sep="\t")
+  tab5row <- read.table(shared, header=TRUE, nrows=5)
+  classes <- sapply(tab5row, class)
+  matrix <- read.table(shared, header=TRUE, colClasses = classes,
+                       fill=TRUE, comment.char="", sep="\t")
   matrix.cutoff <- subset(matrix, matrix$label == cutoff)
   matrix.out    <- as.matrix(matrix.cutoff[1:dim(matrix.cutoff)[1],
                                            4:(3+mean(matrix.cutoff$numOtus))])

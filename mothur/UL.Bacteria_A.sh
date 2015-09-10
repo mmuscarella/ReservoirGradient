@@ -8,3 +8,6 @@ cd /N/dc2/projects/Lennon_Sequences/ReservoirGradient
 module load gcc/4.9.2
 module load mothur/1.36.1
 mothur UL.Bacteria_A.Batch
+qsub UL.Bacteria_B.sh
+qsub UL.Euks.sh
+qsulb UL.Cyano.sh

@@ -17,11 +17,9 @@ getwd()
 setwd("~/GitHub/ReservoirGradient")
 
 require("png")
-
 ```
 
-
-## FIGURES: NUTRIENT PATTERNS ACROSS DAM
+# FIGURE 1: NUTRIENT PATTERNS ACROSS DAM
 ```{r}
 require(ggplot2); require(ggmap)
 require(reshape); require(plyr)
@@ -62,13 +60,11 @@ base.map + ul.pol + samples
 
 ```
 
-
-
-
+# FIGURE 2: METABOLISM ALONG GRADIENT
 ## MICROBIAL METABOLISM: BP, BR, BGE
 Read in data 
 ```{r}
-metab <- read.table("data/res.grad.metab.txt", sep="\t", header=TRUE)
+metab <- read.table("./data/res.grad.metab.txt", sep="\t", header=TRUE)
 colnames(metab)[1] <- "dist"
 colnames(metab)[2] <- "BP"
 colnames(metab)[3] <- "BR"
@@ -76,7 +72,6 @@ BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
 metab <- cbind(metab, BGE)
 ```
 
-# FIGURE 1: METABOLISM ALONG GRADIENT
 ```{r}
 png(filename="./figures/Figure1.png",
     width = 1200, height = 1200, res = 96*2)
@@ -181,17 +176,17 @@ dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
 ```
 
-## Crump Model: Mass Effects and Species Sorting
+# FIGURE 3: Shifts in Microbial Metabolism
+## Crump Model: Mass Effects vs. Species Sorting
 
-# Load required packages and tools
+### Load required R packages and tools
 ```{r}
 source("./bin/MothurTools.R")
-require("png")
 require("vegan")
 se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 ```
 
-# Import Shared and Design Files
+### Import Shared and Design Files
 ```{r}
 # Define Inputs
 # Design = general design file for experiment
@@ -216,6 +211,23 @@ OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 # Remove OTUs with less than two occurances across all sites
 OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 
+# Sequencing an Good's Coverage
+# Sequencing Coverage
+coverage <- rowSums(OTUs)
+coverage
+
+# Good's Coverage
+goods <- function(x = ""){
+  1 - (sum(x == 1) / rowSums(x))
+}
+goods.c <- goods(OTUs)
+
+# Remove Low Coverage Samples (This code removes two sites: Site 5DNA, Site 6cDNA)
+lows <- which(coverage < 10000)
+lows
+OTUs <- OTUs[-which(coverage < 10000), ]
+design <- design[-which(coverage < 10000), ]
+
 # Make Relative Abundence Matrices
 OTUsREL <- OTUs
 for(i in 1:dim(OTUs)[1]){
@@ -225,9 +237,6 @@ for(i in 1:dim(OTUs)[1]){
 # Log Transform Relative Abundances
 OTUsREL.log <- decostand(OTUs, method="log")
 
-# Remove Low Coverage Samples
-coverage <- rowSums(OTUs)
-
 ```
 
 # Calculate Alpha Diversity
@@ -235,11 +244,10 @@ coverage <- rowSums(OTUs)
 # Observed Richness
 S.obs <- rowSums((OTUs > 0) * 1)
 
-# Good's Coverage
-C <- function(x = ""){
-  1 - (sum(x == 1) / rowSums(x))
-}
-C(OTUs)
+
+# Predicted Richness
+
+
 
 # Simpson's Evenness
 SimpE <- function(x = ""){
@@ -251,7 +259,7 @@ SimpE <- function(x = ""){
 }
 simpsE <- round(apply(OTUs, 1, SimpE), 3)
 
-# Diversity
+# Shannon's Diversity
 H <- function(x = ""){
   x <- x[x>0]
   H = 0
@@ -266,16 +274,24 @@ shan <- round(apply(OTUs, 1, H), 2)
 diversity(OTUs, index = "shannon")
 
 alpha.div <- cbind(design, S.obs, simpsE, shan)
-
-
 ```
 
 
 # Alpha Diversity Plots
 ```{r}
 # Seperate data based on lake and soil samples
-lake <- alpha.div[-c(1:3),]
-soil <- alpha.div[c(1:3), ]
+lake <- alpha.div[alpha.div$type == "water",]
+soil <- alpha.div[alpha.div$type == "soil", ]
+
+# Calculate Linear Model
+model.1 <- lm(lake$S.obs ~ lake$distance * lake$molecule)
+summary(model.1)
+
+# Calculate Confidance Intervals of Model
+molecule <- c(rep("DNA", 400), rep("RNA", 400))
+distance <- c(rep(seq(1:400), 2))
+newdata <- data.frame(cbind(lake$molecule, lake$distance))
+conf.95 <- predict(model.1, newdata, interval="confidence")
 
 # Richness across Reservoir Gradient
 opar <- par()
@@ -298,7 +314,7 @@ cols <- rep(NA, length(lake$molecule))
   }
 
 plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
-     xlim = c(0,400), ylim = c(0, 2750), cex = 1.5, 
+     xlim = c(400, 0), ylim = c(0, 2750), cex = 1.5, 
      xlab="", ylab="")
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
@@ -315,13 +331,17 @@ mtext("Observed Richness (S)" , side = 2, line = 4, cex=1.5)
 
 box(lwd=2)
 
-legend("topleft", legend = levels(lake$molecule), pch=c(21, 24), 
+legend("topright", legend = levels(lake$molecule), pch=c(21, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
-abline(h = mean(soil$S.obs), lty=2, col="blue")
+
+matlines(lake$distance[lake$molecule == "DNA"], conf.95[lake$molecule == "DNA", ],
+         lty = c(2, 3, 3), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+matlines(lake$distance[lake$molecule == "RNA"], conf.95[lake$molecule == "RNA", ],
+         lty = c(2, 3, 3), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
 
 mean(soil$S.obs)
-
+abline(h = mean(soil$S.obs), lty=2, col="blue")
 
 # S
 plot(lake$shan ~ lake$distance, col=lake$molecule, pch=19,

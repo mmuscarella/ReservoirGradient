@@ -7,4 +7,4 @@
 cd /N/dc2/projects/Lennon_Sequences/ReservoirGradient
 module load gcc/4.9.2
 module load mothur/1.36.1
-mothur UL.E.Batch
+mothur UL.Euks.Batch

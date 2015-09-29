@@ -374,7 +374,7 @@ opar <- par()
 mol <- rep(NA, length(lake$molecule))
   for (i in 1:length(mol)){
     if (lake$molecule[i] == "DNA"){
-      mol[i] <- 21
+      mol[i] <- 22
     } else {
       mol[i] <- 24
     }
@@ -417,7 +417,7 @@ plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
   # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
   mtext("Richness\n(S)" , side = 2, line = 4, cex=1.5)
 
-  legend("topright", legend = levels(lake$molecule), pch=c(21, 24), 
+  legend("topright", legend = levels(lake$molecule), pch=c(22, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
   box(lwd=2)
@@ -461,7 +461,7 @@ plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las =
   # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
   mtext("Terrestrial\nInfluence" , side = 2, line = 4, cex=1.5)
 
-  legend("topright", legend = levels(UL.sim$molecule), pch=c(21, 24), 
+  legend("topright", legend = levels(UL.sim$molecule), pch=c(22, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
   box(lwd=2)
@@ -488,7 +488,7 @@ plot(UL.sim2$DNA ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las = 1,
   mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
   mtext("Lake\nInfluence", side = 2, line = 4, cex=1.5)
 
-  legend("topleft", legend = levels(UL.sim$molecule), pch=c(21, 24), 
+  legend("topleft", legend = levels(UL.sim$molecule), pch=c(22, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
   box(lwd=2)

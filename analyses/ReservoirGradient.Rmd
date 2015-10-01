@@ -1,40 +1,47 @@
 ---
 title: "Reservoir Gradient"
-author: "Jay T. Lennon, Megan L. Larsen, Mario E. Muscarella"
+author: "Jay T. Lennon, Megan L. Larsen, & Mario E. Muscarella"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 header-includes:
    - \usepackage{array}
-output: pdf_document
-geometry: margin=2.54cm
+   - \usepackage{graphics}
+output: 
+  pdf_document:
+    fig_caption: true
 ---
 
-Project looking at microbial composition and processes along a reservoir gradient
+Project looking at microbial composition and processes along a reservoir gradient.
+
 
 # Initial Setup
-```{r}
+```{r results='hide'}
 rm(list=ls())
 getwd()
-setwd("~/GitHub/ReservoirGradient")
+setwd("~/GitHub/ReservoirGradient/analyses")
 
+# Import Required Packages
 require("png")
+require("ggplot2"); require("ggmap")          # Mapping Tools
+require("reshape"); require("plyr")
+require("rgdal"); require("maptools")
+require("raster"); require("akima")
 ```
 
-# FIGURE 1: NUTRIENT PATTERNS ACROSS DAM
-```{r}
-require(ggplot2); require(ggmap)
-require(reshape); require(plyr)
-require(rgdal); require(maptools)
-require(raster); require(akima)
-
+## FIGURE 1: NUTRIENT PATTERNS ACROSS DAM
+```{r, results='hide'}
 # Load environmental data
-env.dat <- read.csv("./data/ResGrad_EnvDat.csv", header = TRUE)
-env.dat <- env.dat[-16,]
+env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
+env.dat <- env.dat[-16,]  # Why are we removing this?
 
 # Import University Lake Polygon
-ul <- readOGR("./maps","UniversityLake")
+ul <- readOGR("../maps","UniversityLake")
 summary(ul) # Check projection and and datum
 #ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
 ul <- fortify(ul) # raster image for plotting with ggplot2
+
+# Start Plotting File
+png(filename="../figures/Figure1.png",
+    width = 1200, height = 1200, res = 96*2)
 
 # Download the map from GoogleMaps API - higher quality image than with RgoogleMaps
 theMap <- get_map(location = c(lon = -86.503087, lat = 39.188686), 
@@ -57,15 +64,25 @@ base.map + ul.pol + samples
 
 # Create the gradient contours for the plot
 # Add color?
-
+dev.off() # this writes plot to folder
+graphics.off() # shuts down open devices
 ```
 
-# FIGURE 2: METABOLISM ALONG GRADIENT
-## MICROBIAL METABOLISM: BP, BR, BGE
-## Microbial Functional Groups: Phototroph:Heterotroph
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Water Chemistry"}
+library(png)
+library(grid)
+img <- readPNG("../figures/Figure1.png")
+grid.raster(img)
+```
+
+
+
+## FIGURE 2: METABOLISM ALONG GRADIENT
+### MICROBIAL METABOLISM: BP, BR, BGE
+### Microbial Functional Groups: Phototroph:Heterotroph
 Read in data 
-```{r}
-metab <- read.table("./data/res.grad.metab.txt", sep="\t", header=TRUE)
+```{r  results='hide'}
+metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
 colnames(metab)[1] <- "dist"
 colnames(metab)[2] <- "BP"
 colnames(metab)[3] <- "BR"
@@ -73,8 +90,8 @@ BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
 metab <- cbind(metab, BGE)
 ```
 
-```{r}
-png(filename="./figures/Figure1.png",
+```{r results='hide'}
+png(filename="../figures/Figure2.png",
     width = 1200, height = 1200, res = 96*2)
 
 par(mfrow = c(1,1), mar = c(1, 7, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
@@ -181,12 +198,20 @@ dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
 ```
 
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Microbial Processes"}
+library(png)
+library(grid)
+img <- readPNG("../figures/Figure2.png")
+ grid.raster(img)
+```
+
+
 # FIGURE 3: Shifts in Microbial Metabolism
 ## Crump Model: Mass Effects vs. Species Sorting
 
 ### Load required R packages and tools
-```{r}
-source("./bin/MothurTools.R")
+```{r results = 'hide'}
+source("../bin/MothurTools.R")
 require("vegan")
 se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 ```
@@ -197,9 +222,9 @@ se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 # Design = general design file for experiment
 # shared = OTU table from mothur with sequence similarity clustering
 # Taxonomy = Taxonomic information for each OTU
-design <- "./data/UL.design.txt"
-shared <- "./data/UL.bac.final.shared"
-taxon  <- "./data/UL.bac.final.0.03.taxonomy"
+design <- "../data/UL.design.txt"
+shared <- "../data/UL.bac.final.shared"
+taxon  <- "../data/UL.bac.final.0.03.taxonomy"
 
 # Import Design
 design <- read.delim(design, header=T, row.names=1)
@@ -211,6 +236,16 @@ OTUs <- read.otu(shared = shared, cutoff = "0.03")         # 97% Similarity
 OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 ```
 
+```{r}
+# cyanos
+# phytos
+# cyan <- "../data/UL."
+# cyanos <- read.otu(shared = cyan, cutoff = "0.03")
+# photos <- read.otu(shared = photo, cutoff = "0.03")
+
+
+```
+
 # Data Transormations
 ```{r}
 # Remove OTUs with less than two occurances across all sites
@@ -219,7 +254,6 @@ OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 # Sequencing an Good's Coverage
 # Sequencing Coverage
 coverage <- rowSums(OTUs)
-coverage
 
 # Good's Coverage
 goods <- function(x = ""){
@@ -249,11 +283,6 @@ OTUsREL.log <- decostand(OTUs, method="log")
 # Observed Richness
 S.obs <- rowSums((OTUs > 0) * 1)
 
-
-# Predicted Richness
-
-
-
 # Simpson's Evenness
 SimpE <- function(x = ""){
   x <- as.data.frame(x)
@@ -276,39 +305,76 @@ H <- function(x = ""){
 }
 
 shan <- round(apply(OTUs, 1, H), 2)
-diversity(OTUs, index = "shannon")
+shan2 <- diversity(OTUs, index = "shannon")
 
 alpha.div <- cbind(design, S.obs, simpsE, shan)
 ```
 
 
-# Alpha Diversity Plots
+## Alpha Diversity Across Gradient
 ```{r}
 # Seperate data based on lake and soil samples
 lake <- alpha.div[alpha.div$type == "water",]
 soil <- alpha.div[alpha.div$type == "soil", ]
 
 # Calculate Linear Model
-model.1 <- lm(lake$S.obs ~ lake$distance * lake$molecule)
-summary(model.1)
+model.rich <- lm(lake$S.obs ~ lake$distance * lake$molecule)
+summary(model.rich)
 
 # Calculate Confidance Intervals of Model
-molecule <- c(rep("DNA", 400), rep("RNA", 400))
-distance <- c(rep(seq(1:400), 2))
-newdata <- data.frame(cbind(lake$molecule, lake$distance))
-conf.95 <- predict(model.1, newdata, interval="confidence")
+newdata.rich <- data.frame(cbind(lake$molecule, lake$distance))
+conf95.rich <- predict(model.rich, newdata.rich, interval="confidence")
 
-png(filename="./figures/Figure3.png",
-    width = 1200, height = 1200, res = 96*2)
+# Average Richess in Terrestrial Habitat
+mean(soil$S.obs)
+```
 
+## Similarity To Terrestrial Habitat Across Gradient
+```{r}
+# Similarity to Soil Sample
+UL.bray      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
+UL.bray.lake <- UL.bray[-c(1:3), 1:3]
+bray.mean    <- round(apply(UL.bray.lake, 1, mean), 3)
+bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
+UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
 
-# Richness across Reservoir Gradient
+# Calculate Linear Model
+model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
+summary(model.terr)
+
+# Calculate Confidance Intervals of Model
+newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
+conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
+```
+
+## Similarity To Lake Habitat Across Gradient
+```{r}
+# Similarity to Lake Sample 1
+UL.bray2      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
+UL.bray.lake2 <- UL.bray[-c(1:3), 4:7]
+UL.sim2       <- cbind(design[-c(1:3), ], "DNA" = apply(UL.bray.lake2[,c(1,3)], 1, mean), 
+                                          "RNA" = apply(UL.bray.lake2[,c(2,4)], 1, mean))
+
+# Calculate Linear Model
+model.lake1 <- lm(UL.sim2$DNA ~ UL.sim2$distance * UL.sim2$molecule)
+model.lake2 <- lm(UL.sim2$RNA ~ UL.sim2$distance * UL.sim2$molecule)
+summary(model.lake1)
+summary(model.lake2)
+
+# Calculate Confidance Intervals of Model
+newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
+conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
+```
+
+### Figure 3 Plot
+```{r}
+# Define Plot Parameters
 opar <- par()
-par(mar = c(5,6, 1, 1))
+# par(mar = c(5,6, 1, 1))
 mol <- rep(NA, length(lake$molecule))
   for (i in 1:length(mol)){
     if (lake$molecule[i] == "DNA"){
-      mol[i] <- 21
+      mol[i] <- 22
     } else {
       mol[i] <- 24
     }
@@ -322,108 +388,121 @@ cols <- rep(NA, length(lake$molecule))
     }
   }
 
+# Initial Plot
+png(filename="../figures/Figure3.png",
+    width = 1200, height =1200, res = 96*2)
+
+par(mfrow = c(1,1), mar = c(1, 7, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
+bar.layout <- layout(rbind(1, 2, 3), height = c(4, 4, 4)) 
+
+# Richness Across Gradient Plot
 plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
      xlim = c(400, 0), ylim = c(0, 2750), cex = 1.5, 
-     xlab="", ylab="")
+     xlab="", ylab="", xaxt="n")
 
-axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  matlines(lake$distance[lake$molecule == "DNA"], conf95.rich[lake$molecule == "DNA", ],
+         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+  matlines(lake$distance[lake$molecule == "RNA"], conf95.rich[lake$molecule == "RNA", ],
+         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
 
-mtext("Distance from Dam (m)" , side = 1, line = 3, cex=1.5)
-mtext("Observed Richness (S)" , side = 2, line = 4, cex=1.5)
+  axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                        
+  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
+  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
 
-legend("topright", legend = levels(lake$molecule), pch=c(21, 24), 
+  # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+  mtext("Richness\n(S)" , side = 2, line = 4, cex=1.5)
+
+  legend("topright", legend = levels(lake$molecule), pch=c(22, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
+  box(lwd=2)
 
-matlines(lake$distance[lake$molecule == "DNA"], conf.95[lake$molecule == "DNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-matlines(lake$distance[lake$molecule == "RNA"], conf.95[lake$molecule == "RNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-
-box(lwd=2)
-
-
-
-mean(soil$S.obs)
-abline(h = mean(soil$S.obs), lty=2, col="blue")
-
-# Similarity to Soil Sample
-UL.bray <- as.matrix(vegdist(OTUsREL.log, method="bray"))
-UL.bray.lake <- UL.bray[-c(1:3), 1:3]
-bray.mean <- round(apply(UL.bray.lake, 1, mean), 3)
-bray.se <- round(apply(UL.bray.lake, 1, se), 3)
-
-UL.sim <- cbind(design[-c(1:3), ], bray.mean, bray.se)
-
-
-# Calculate Linear Model
-model.2 <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
-summary(model.2)
-
-# Calculate Confidance Intervals of Model
-newdata <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
-conf.95 <- predict(model.2, newdata, interval="confidence")
-
-par(mar = c(5,6, 1, 1))
-mol <- rep(NA, length(UL.sim$molecule))
-  for (i in 1:length(mol)){
-    if (UL.sim$molecule[i] == "DNA"){
-      mol[i] <- 21
-    } else {
-      mol[i] <- 24
-    }
-  }
-cols <- rep(NA, length(UL.sim$molecule))
-  for (i in 1:length(cols)){
-    if (UL.sim$molecule[i] == "DNA"){
-      cols[i] <- "gray15"
-    } else {
-      cols[i] <- "gray75"
-    }
-  }
+# Terrestrial Influence Plot
+#   mol <- rep(NA, length(UL.sim$molecule))
+#     for (i in 1:length(mol)){
+#       if (UL.sim$molecule[i] == "DNA"){
+#         mol[i] <- 21
+#       } else {
+#         mol[i] <- 24
+#       }
+#     }
+#   cols <- rep(NA, length(UL.sim$molecule))
+#     for (i in 1:length(cols)){
+#       if (UL.sim$molecule[i] == "DNA"){
+#         cols[i] <- "gray15"
+#       } else {
+#         cols[i] <- "gray75"
+#       }
+#     }
 
 plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las = 1,
-     xlim = c(400, 0), ylim = c(0.75, 1), cex = 1.5, 
-     xlab="", ylab="")
+     xlim = c(400, 0), ylim = c(0, 0.25), cex = 1.5, 
+     xlab="", ylab="", xaxt="n")
 
-axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)                              
-axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  matlines(lake$distance[lake$molecule == "DNA"], conf95.terr[lake$molecule == "DNA", ],
+         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+  matlines(lake$distance[lake$molecule == "RNA"], conf95.terr[lake$molecule == "RNA", ],
+         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
 
-mtext("Distance from Dam (m)" , side = 1, line = 3, cex=1.5)
-mtext("Bray-Curtis Distance to Soil Samples" , side = 2, line = 4, cex=1.5)
+  axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)    
+  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
+  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
 
-legend("bottomright", legend = levels(UL.sim$molecule), pch=c(21, 24), 
+  # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+  mtext("Terrestrial\nInfluence" , side = 2, line = 4, cex=1.5)
+
+  legend("topright", legend = levels(UL.sim$molecule), pch=c(22, 24), 
        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
 
+  box(lwd=2)
 
-matlines(lake$distance[lake$molecule == "DNA"], conf.95[lake$molecule == "DNA", ],
+# Lake Influence Plot
+plot(UL.sim2$DNA ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las = 1,
+     xlim = c(400, 0), ylim = c(0, 1), cex = 1.5, 
+     xlab="", ylab="")
+
+  matlines(lake$distance[lake$molecule == "DNA"], conf95.lake[lake$molecule == "DNA", ],
          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-matlines(lake$distance[lake$molecule == "RNA"], conf.95[lake$molecule == "RNA", ],
+  matlines(lake$distance[lake$molecule == "RNA"], conf95.lake[lake$molecule == "RNA", ],
          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
 
-box(lwd=2)
+  axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)  
+  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)           
+  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)   
+  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+
+  mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+  mtext("Lake\nInfluence", side = 2, line = 4, cex=1.5)
+
+  legend("topleft", legend = levels(UL.sim$molecule), pch=c(22, 24), 
+       pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
+
+  box(lwd=2)
 
 
 
-
-
-
-dev.off() # this writes plot to folder
-graphics.off() # shuts down open devices
-
+# Close Plot Defice
+dev.off()
+graphics.off() 
 ```
 
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Microbial Commuinity Shifts"}
+library(png)
+library(grid)
+img <- readPNG("../figures/Figure3.png")
+grid.raster(img)
 

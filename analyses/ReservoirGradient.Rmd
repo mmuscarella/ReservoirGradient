@@ -14,74 +14,123 @@ Project looking at microbial composition and processes along a reservoir gradien
 
 
 # Initial Setup
-```{r results='hide'}
+```{r results='hide', message=FALSE}
 rm(list=ls())
 getwd()
 setwd("~/GitHub/ReservoirGradient/analyses")
 
 # Import Required Packages
 require("png")
-require("ggplot2"); require("ggmap")          # Mapping Tools
-require("reshape"); require("plyr")
-require("rgdal"); require("maptools")
-require("raster"); require("akima")
+require("ggplot2")      
+require("rgdal")
+require("maptools")
+require("raster")
+require("OpenMx")
+require("reshape")
+require("ggmap")
+require("grid")
+require("akima")
+require("plyr")
+require("raster") 
+require("gridExtra")
 ```
 
 ## FIGURE 1: NUTRIENT PATTERNS ACROSS DAM
-```{r, results='hide'}
+```{r}
 # Load environmental data
 env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
-env.dat <- env.dat[-16,]  # Why are we removing this?
+env.dat <- env.dat[-16,]
+```
+
+```{r results='hide', fig.keep='none'}
+env.mat <- vec2diag(env.dat$TP)
+rownames(env.mat) <- env.dat$long
+colnames(env.mat) <- env.dat$lat
+env.mat[env.mat == 0] <- 1
+m1 <- melt(env.mat)
+colnames(m1) <- c("lon","lat","TP")
+
+cols <- c(2,3,10)
+test <- env.dat[,cols]
 
 # Import University Lake Polygon
-ul <- readOGR("../maps","UniversityLake")
+ul <- readOGR("../maps","UniversityLakePoly")
+ul.dat <- readOGR("../maps","UniversityLake")
 summary(ul) # Check projection and and datum
 #ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
 ul <- fortify(ul) # raster image for plotting with ggplot2
 
-# Start Plotting File
-png(filename="../figures/Figure1.png",
-    width = 1200, height = 1200, res = 96*2)
+ul.coords <- c(lon = -86.503087, lat = 39.188686)
 
-# Download the map from GoogleMaps API - higher quality image than with RgoogleMaps
-theMap <- get_map(location = c(lon = -86.503087, lat = 39.188686), 
+# using google maps as base
+ul.map <- get_map(location = ul.coords, 
                   zoom = 17, maptype = "terrain", 
                   source = "google", messaging = F, color = "bw")
-base.map <- ggmap(theMap, extent = "device", legend = "topleft")
-print(base.map)
+base.map <- ggmap(ul.map, extent = "device", legend = "topleft")
 
-# plot map with polygon and sample points
-samples <- geom_point(
-  aes(x = long, y = lat),
-  size = 3, data = env.dat)
 
-ul.pol <- geom_polygon(
-  aes(x = long, y = lat, group = group), 
-  fill = 'grey', size = 0.5,
-  color = 'black', data = ul, alpha=1)
+# base plot
+p <- ggplot(aes(long,lat), data = env.dat) + 
+  geom_polygon(fill = "grey", size = 1, color = 'black', data = ul, alpha = 1) +
+  labs(x = "Longitude", y = "Latitude") +
+  theme(#plot.margin = unit(c(1, 6, 1, 6), "cm"),
+        panel.background = element_rect(fill = "white"),
+        #panel.margin = unit(1,1,1,1),
+        #panel.grid.major = element_line(colour = "white"),
+        #panel.grid.minor = element_line(colour = "white"),
+        axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.position = c(0.9,0.25))
 
-base.map + ul.pol + samples
+TP <- p +  
+  geom_point(aes(size = TP)) + 
+  scale_size(name="Total Phosphorus\n(ug P/L)")
+print(TP)
 
-# Create the gradient contours for the plot
-# Add color?
+DO <- p +  
+  geom_point(aes(size = DO)) + 
+  scale_size(name="Dissolved Oxygen\n(mg/L)")
+print(DO)
+
+chla <- p +  
+  geom_point(aes(size = chla)) + 
+  scale_size(name="Chlorophyll a\n(mg/L)")
+print(chla)
+
+pH <- p +  
+  geom_point(aes(size = pH)) + 
+  scale_size(name="pH")
+
+print(pH)
+
+color <- p +  
+  geom_point(aes(size = color)) + 
+  scale_size(name="Color\nAbs 440 nm")
+print(color)
+
+# Start Plotting File
+png(filename="../figures/Figure1.png",
+    width = 1800, height = 1200, res = 96*2)
+
+grid.arrange(TP,chla,DO,pH,color,nrow=2,ncol=3)
+
 dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
 ```
 
-```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Water Chemistry"}
+
+```{r fig.width=6, fig.height=4,echo=FALSE,fig.cap="Water Chemistry"}
 library(png)
 library(grid)
 img <- readPNG("../figures/Figure1.png")
 grid.raster(img)
 ```
 
-
-
 ## FIGURE 2: METABOLISM ALONG GRADIENT
 ### MICROBIAL METABOLISM: BP, BR, BGE
 ### Microbial Functional Groups: Phototroph:Heterotroph
 Read in data 
-```{r  results='hide'}
+```{r results='hide'}
 metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
 colnames(metab)[1] <- "dist"
 colnames(metab)[2] <- "BP"

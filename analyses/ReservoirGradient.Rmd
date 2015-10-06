@@ -554,4 +554,88 @@ library(png)
 library(grid)
 img <- readPNG("../figures/Figure3.png")
 grid.raster(img)
+```
+
+
+# Identifying the Soil Bacteria
+```{r}
+soil.only <- OTUs[, which(colSums(OTUs[-c(1:3),]) == 0)]
+lake.n.soil <- OTUs[, setdiff(colnames(OTUs),colnames(soil.only))]
+
+w.dna <- OTUs[which(design$molecule == "DNA" & design$type == "water"), ]
+w.rna <- OTUs[which(design$molecule == "RNA" & design$type == "water"), ]
+
+nvr.act <- which(colSums(w.rna) == 0)
+
+terr.lake <- w.dna[ , c(names(nvr.act))]
+
+terr.rich <- rowSums((terr.lake > 0) * 1)
+
+terr.REL <- rowSums(terr.lake) / rowSums(w.dna) 
+
+design.dna <- design[which(design$molecule == "DNA" & design$type == "water"), ]
+```
+
+
+# Soil Organisms Plot
+
+```{r}
+# Initial Plot
+png(filename="../figures/Figure4.png",
+    width = 1200, height =1200, res = 96*2)
+
+par(mfrow = c(1,1), mar = c(1, 5, 1, 1), oma = c(4, 4, 0, 0) + 0.5)
+bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
+
+# Soil OTU Richness Across Gradient Plot
+plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
+     xlim = c(400, 0), ylim = c(0, 1800), cex = 1.5, 
+     xlab="", ylab="", xaxt="n")
+
+  axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                        
+  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
+  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+
+  # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+  mtext("Transient\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
+
+  box(lwd=2)
+  
+
+# Soil OTU Relative Abundance Across Gradient Plot
+plot(terr.REL ~ design.dna$distance, col= "black", pch=22, las = 1,
+     xlim = c(400, 0), ylim = c(0, 0.18), cex = 1.5, 
+     xlab="", ylab="")
+
+  axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)  
+  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)           
+  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)   
+  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+
+  mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+  mtext("Transient\nRelative\nAbundance", side = 2, line = 4, cex=1.5)
+
+  box(lwd=2)  
+  
+
+# Close Plot Defice
+dev.off()
+graphics.off() 
+```
+
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Transient Species Distributions "}
+library(png)
+library(grid)
+img <- readPNG("../figures/Figure4.png")
+grid.raster(img)
+```
 

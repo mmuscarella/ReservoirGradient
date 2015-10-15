@@ -42,7 +42,7 @@ env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
 env.dat <- env.dat[-16,]
 ```
 
-```{r results='hide', fig.keep='none'}
+```{r results='hide', fig.keep='none', warning=FALSE}
 # ggplot theme
 theme_maps <- function(base_size = 12, base_family = "Arial"){
   theme_bw(base_size = base_size, base_family = base_family) %+replace%
@@ -124,7 +124,7 @@ graphics.off() # shuts down open devices
 ```
 
 
-```{r fig.width=6, fig.height=4,echo=FALSE,fig.cap="Water Chemistry"}
+```{r fig.width=6, fig.height=4,echo=FALSE,fig.cap="University Lake Map"}
 library(png)
 library(grid)
 img <- readPNG("../figures/Figure1.png")
@@ -132,7 +132,7 @@ grid.raster(img)
 ```
 
 ##FIGURE S1: CHEMICAL PROPERTIES
-```{r results = hide}
+```{r }
 
 # Start Plotting File
 png(filename="../figures/FigureS1.png",

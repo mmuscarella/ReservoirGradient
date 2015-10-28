@@ -716,10 +716,17 @@ terr.rich <- rowSums((terr.lake > 0) * 1)
 terr.REL <- rowSums(terr.lake) / rowSums(w.dna) 
 
 design.dna <- design[which(design$molecule == "DNA" & design$type == "water"), ]
+
+terr.rich.log <- log(terr.rich)
+terr.REL.log <- log(terr.REL)
+
+terr.mod1 <- lm(terr.rich.log ~ design.dna$distance)
+terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
+
 ```
 
 
-# Soil Organisms Plot
+# Figure 4: Soil Organisms Plot
 
 ```{r}
 # Initial Plot
@@ -731,7 +738,7 @@ bar.layout <- layout(rbind(1, 2), height = c(4, 4))
 
 # Soil OTU Richness Across Gradient Plot
 plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(0, 1800), cex = 1.5, 
+     xlim = c(400, 0), ylim = c(20, 1800), cex = 1.5, log = "y", 
      xlab="", ylab="", xaxt="n")
 
   axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
@@ -751,7 +758,7 @@ plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
 
 # Soil OTU Relative Abundance Across Gradient Plot
 plot(terr.REL ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(0, 0.18), cex = 1.5, 
+     xlim = c(400, 0), ylim = c(0.005, 0.18), cex = 1.5, log = "y",
      xlab="", ylab="")
 
   axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)

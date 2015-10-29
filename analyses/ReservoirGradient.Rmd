@@ -18,7 +18,6 @@ Project looking at microbial composition and processes along a reservoir gradien
 rm(list=ls())
 getwd()
 setwd("~/GitHub/ReservoirGradient/analyses")
-#setwd("C:/Users/Megan/GitHub/ReservoirGradient/analyses/")
 
 # Import Required Packages
 require("png")
@@ -159,7 +158,7 @@ axis(side = 1, lwd.ticks = 2,  labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5
    at = c(0, 100, 200, 300, 400))
 
 
-mtext(expression(paste('Total Phosphorus (',mu,'g P L'^-1*')')), side = 2, line = 4, cex = 1)
+mtext(expression(paste('Total Phosphorus (mg P L'^-1*')')), side = 2, line = 4, cex = 1)
 
 # Chlorophyll
 chla <- plot(env.dat$dist.dam, env.dat$chla, 
@@ -176,19 +175,19 @@ axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5,
    #labels = c("0", "100", "200", "300", "400"), 
    at = c(0, 100, 200, 300, 400))
 
-mtext(expression(paste('Chlorophyll a (',mu,'g L'^-1*')')), side = 2, line = 4, cex = 1)
+mtext(expression(paste('Chlorophyll A (mg L'^-1*')')), side = 2, line = 4, cex = 1)
 
 
 #Dissolved Oxygen
-plot(env.dat$dist.dam, env.dat$DO, 
+plot(env.dat$dist.dam, env.dat$chla, 
      ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(5,10), xlim = c(-15, 400),
+     ylim = c(0,30), xlim = c(-15, 400),
      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
      yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("5", "7.5", "10"), at = c(5,7.5, 10))
+    labels = c("0", "10", "20", "30"), at = c(0, 10, 20, 30))
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
    labels = c("0", "100", "200", "300", "400"), 
@@ -197,15 +196,15 @@ axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
 mtext(expression(paste('Dissolved Oxygen (mg L'^-1*')')), side = 2, line = 4, cex = 1)
 
 #pH
-plot(env.dat$dist.dam, env.dat$pH, 
+plot(env.dat$dist.dam, env.dat$chla, 
      ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(8,9), xlim = c(-15, 400),
+     ylim = c(0,30), xlim = c(-15, 400),
      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
      yaxt = "n", xaxt = "n")
 box(lwd = 2)
 
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("8", "8.5","9"), at = c(8, 8.5, 9))
+    labels = c("0", "10", "20", "30"), at = c(0, 10, 20, 30))
 
 axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
    labels = c("0", "100", "200", "300", "400"), 

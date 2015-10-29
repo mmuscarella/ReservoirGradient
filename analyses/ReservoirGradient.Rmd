@@ -18,7 +18,6 @@ Project looking at microbial composition and processes along a reservoir gradien
 rm(list=ls())
 getwd()
 setwd("~/GitHub/ReservoirGradient/analyses")
-#setwd("C:/Users/Megan/GitHub/ReservoirGradient/analyses/")
 
 # Import Required Packages
 require("png")
@@ -216,7 +215,6 @@ mtext("pH", side = 2, line = 4, cex = 1)
 dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
 ```
-
 ## FIGURE 2: METABOLISM ALONG GRADIENT
 ### MICROBIAL METABOLISM: BP, BR, BGE
 ### Microbial Functional Groups: Phototroph:Heterotroph
@@ -376,15 +374,6 @@ OTUs <- read.otu(shared = shared, cutoff = "0.03")         # 97% Similarity
 OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 ```
 
-```{r}
-# cyanos
-# phytos
-# cyan <- "../data/UL."
-# cyanos <- read.otu(shared = cyan, cutoff = "0.03")
-# photos <- read.otu(shared = photo, cutoff = "0.03")
-
-
-```
 
 # Data Transormations
 ```{r}
@@ -447,6 +436,59 @@ shan <- round(apply(OTUs, 1, H), 2)
 shan2 <- diversity(OTUs, index = "shannon")
 
 alpha.div <- cbind(design, S.obs, simpsE, shan)
+```
+
+# Import Phototroph
+
+```{r}
+# The phototrophs
+cyanos.in <- "../data/UL.cyano.final.shared"
+phytos.in <- "../data/UL.euks.final.shared"
+
+cyanos <- read.otu(shared = cyanos.in, cutoff = "0.03")
+phytos <- read.otu(shared = phytos.in, cutoff = "0.03")
+
+# Remove OTUs with less than two occurences across all sites
+cyanos <- cyanos[, which(colSums(cyanos) >= 2)]
+phytos <- phytos[, which(colSums(phytos) >= 2)]
+
+# Remove sites where we have low coverage
+cyanos <- cyanos[-which(coverage < 10000), ]
+phytos <- phytos[-which(coverage < 10000), ]
+
+# Remove Non Intersecting Sites
+ratio.sites <- intersect(intersect(rownames(cyanos), rownames(phytos)), rownames(OTUs))
+cyanos <- cyanos[ratio.sites, ]
+phytos <- phytos[ratio.sites, ]
+heteros <- OTUs[ratio.sites, ]
+design.int <- design[ratio.sites, ]
+
+# Remove RNA Sites
+DNA.samps <- which(design.int$molecule == "DNA")
+cyanos <- cyanos[DNA.samps, ]
+phytos <- phytos[DNA.samps, ]
+heteros <- OTUs[DNA.samps, ]
+design.dna <- design[DNA.samps, ]
+
+# Observed Richness
+S.cyano <- rowSums((cyanos > 0) * 1)
+S.phyto <- rowSums((phytos > 0) * 1)
+S.hetero <- rowSums((heteros > 0) * 1)
+
+N.cyano <- rowSums(cyanos)
+N.phyto <- rowSums(phytos)
+N.hetero <- rowSums(heteros) - rowSums(cyanos)
+                    
+HtoC <- N.hetero / N.cyano
+HtoP <- N.hetero / N.phyto
+HtoBoth <- N.hetero / (N.cyano + N.phyto)
+
+
+# Ratio Across Gradient Plot
+plot(HtoC ~ design.dna$distance, col= "black", pch = 22, las = 1,
+     xlim = c(400, 0), ylim = c(0, 1000), cex = 1.5, 
+     xlab="", ylab="")
+
 ```
 
 
@@ -718,11 +760,28 @@ terr.REL <- rowSums(terr.lake) / rowSums(w.dna)
 
 design.dna <- design[which(design$molecule == "DNA" & design$type == "water"), ]
 
-terr.rich.log <- log(terr.rich)
-terr.REL.log <- log(terr.REL)
+terr.rich.log <- log10(terr.rich)
+terr.REL.log <- log10(terr.REL)
 
 terr.mod1 <- lm(terr.rich.log ~ design.dna$distance)
 terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
+
+summary(terr.mod1)
+summary(terr.mod2)
+
+# # Calculate Confidance Intervals of Model
+# newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
+# conf95.lake <- predict(terr.mod1, newdata.lake, interval="confidence")
+# 
+# # Dummy Variables Regression Model ("Lake Influence")
+# D3 <- (UL.sim2$molecule == "RNA")*1
+# fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
+# summary(fit.Fig.3c)
+# 
+# DNA.int.3c <- fit.Fig.3c$coefficients[1]
+# DNA.slp.3c <- fit.Fig.3c$coefficients[2]
+# RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
+# RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
 
 ```
 
@@ -738,38 +797,57 @@ par(mfrow = c(1,1), mar = c(1, 5, 1, 1), oma = c(4, 4, 0, 0) + 0.5)
 bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
 
 # Soil OTU Richness Across Gradient Plot
-plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(20, 1800), cex = 1.5, log = "y", 
-     xlab="", ylab="", xaxt="n")
+plot(terr.rich.log ~ design.dna$distance, col= "black", pch=22, las = 1,
+     xlim = c(400, 0), ylim = c(1.5, 3.5), cex = 1.5,  
+     xlab="", ylab="", xaxt="n", yaxt="n")
 
-  axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
-  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                        
-  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
   axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
-  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 2, lwd.ticks = 2, at = c(2, 3), labels = c(10^2, 10^3), cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(10, 100, by = 10), 
+       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, at = c(2, 3), tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(10, 100, by = 10), 
+       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)    
+  axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=0.02, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(10, 100, by = 10), 
+       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
 
   # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
   mtext("Transient\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
-
   box(lwd=2)
+  
+#   # Add multiple regression lines
+#   clip(400, 0, 0, 1)
+#   abline(a = DNA.int.3c, b = DNA.slp.3c, col = "black", lwd = 2.5, lty = 6)
+# 
+#   clip(400, 0, 0, 1)
+#   abline(a = RNA.int.3c, b = RNA.slp.3c, col = "black", lwd = 2.5, lty = 4)
   
 
 # Soil OTU Relative Abundance Across Gradient Plot
-plot(terr.REL ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(0.005, 0.18), cex = 1.5, log = "y",
-     xlab="", ylab="")
+plot(terr.REL.log ~ design.dna$distance, col= "black", pch=22, las = 1,
+     xlim = c(400, 0), ylim = c(-2.5, -.5), cex = 1.5, 
+     xlab="", ylab="", xaxt="n", yaxt="n")
 
-  axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)  
-  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)           
-  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)   
-  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
+  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 2, lwd.ticks = 2, at = c(-2, -1), labels = c(0.01, 0.1), cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(0.001, 0.01, by = 0.001), 
+       seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)
+  axis(side = 2, lwd.ticks = 2, at = c(-2, -1), tck=0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(0.001, 0.01, by = 0.001), 
+       seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)    
+  axis(side = 4, lwd.ticks = 2, at = c(-2, -1), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 4, lwd.ticks = 2, at = c(-2, -1), tck=0.02, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(0.001, 0.01, by = 0.001), 
+       seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)
+
 
   mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
   mtext("Transient\nRelative\nAbundance", side = 2, line = 4, cex=1.5)

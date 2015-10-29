@@ -387,7 +387,7 @@ OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 
 # Data Transormations
 ```{r}
-# Remove OTUs with less than two occurances across all sites
+# Remove OTUs with less than two occurences across all sites
 OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 
 # Sequencing an Good's Coverage
@@ -414,7 +414,6 @@ for(i in 1:dim(OTUs)[1]){
 
 # Log Transform Relative Abundances
 OTUsREL.log <- decostand(OTUs, method="log")
-
 ```
 
 # Calculate Alpha Diversity
@@ -466,13 +465,24 @@ conf95.rich <- predict(model.rich, newdata.rich, interval="confidence")
 
 # Average Richess in Terrestrial Habitat
 mean(soil$S.obs)
+
+# Dummy Variables Regression Model ("Species Richness"")
+D1 <- (lake$molecule == "RNA")*1
+fit.Fig.3a <- lm(lake$S.obs ~ lake$distance + D1 + lake$distance*D1)
+summary(fit.Fig.3a)
+
+DNA.int.3a <- fit.Fig.3a$coefficients[1]
+DNA.slp.3a <- fit.Fig.3a$coefficients[2]
+RNA.int.3a <- DNA.int.3a + fit.Fig.3a$coefficients[3]
+RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
+
 ```
 
 ## Similarity To Terrestrial Habitat Across Gradient
 ```{r}
 # Similarity to Soil Sample
 UL.bray      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
-UL.bray.lake <- UL.bray[-c(1:3), 1:3]
+UL.bray.lake <- UL.bray[-c(1:3), 1:3] 
 bray.mean    <- round(apply(UL.bray.lake, 1, mean), 3)
 bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
 UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
@@ -484,6 +494,16 @@ summary(model.terr)
 # Calculate Confidance Intervals of Model
 newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
 conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
+
+# Dummy Variables Regression Model ("Terrestrial Influence")
+D2 <- (UL.sim$molecule == "RNA")*1
+fit.Fig.3b <- lm(UL.sim$bray.mean ~ UL.sim$distance + D2 + UL.sim$distance*D2)
+summary(fit.Fig.3b)
+
+DNA.int.3b <- fit.Fig.3b$coefficients[1]
+DNA.slp.3b <- fit.Fig.3b$coefficients[2]
+RNA.int.3b <- DNA.int.3b + fit.Fig.3b$coefficients[3]
+RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
 ```
 
 ## Similarity To Lake Habitat Across Gradient
@@ -503,6 +523,17 @@ summary(model.lake2)
 # Calculate Confidance Intervals of Model
 newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
 conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
+
+# Dummy Variables Regression Model ("Lake Influence")
+D3 <- (UL.sim2$molecule == "RNA")*1
+fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
+summary(fit.Fig.3c)
+
+DNA.int.3c <- fit.Fig.3c$coefficients[1]
+DNA.slp.3c <- fit.Fig.3c$coefficients[2]
+RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
+RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
+
 ```
 
 ### Figure 3 Plot
@@ -539,10 +570,17 @@ plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
      xlim = c(400, 0), ylim = c(0, 2750), cex = 1.5, 
      xlab="", ylab="", xaxt="n")
 
-  matlines(lake$distance[lake$molecule == "DNA"], conf95.rich[lake$molecule == "DNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-  matlines(lake$distance[lake$molecule == "RNA"], conf95.rich[lake$molecule == "RNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "DNA"], conf95.rich[lake$molecule == "DNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "RNA"], conf95.rich[lake$molecule == "RNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+
+# Add multiple regression lines
+clip(400, 0, 0, 2750)
+abline(a = DNA.int.3a, b = DNA.slp.3a, col = "black", lwd = 2.5, lty = 6)
+
+clip(400, 0, 0, 2750)
+abline(a = RNA.int.3a, b = RNA.slp.3a, col = "black", lwd = 2.5, lty = 4)
 
   axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
   axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
@@ -583,10 +621,17 @@ plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las =
      xlim = c(400, 0), ylim = c(0, 0.25), cex = 1.5, 
      xlab="", ylab="", xaxt="n")
 
-  matlines(lake$distance[lake$molecule == "DNA"], conf95.terr[lake$molecule == "DNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-  matlines(lake$distance[lake$molecule == "RNA"], conf95.terr[lake$molecule == "RNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "DNA"], conf95.terr[lake$molecule == "DNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "RNA"], conf95.terr[lake$molecule == "RNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+
+# Add multiple regression lines
+clip(400, 0, 0, 0.27)
+abline(a = DNA.int.3b, b = DNA.slp.3b, col = "black", lwd = 2.5, lty = 6)
+
+clip(400, 0, 0, 0.27)
+abline(a = RNA.int.3b, b = RNA.slp.3b, col = "black", lwd = 2.5, lty = 4)
 
   axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
   axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
@@ -606,14 +651,21 @@ plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las =
   box(lwd=2)
 
 # Lake Influence Plot
-plot(UL.sim2$DNA ~ UL.sim$distance, col= "black", bg = cols, pch=mol, las = 1,
+plot(UL.sim2$DNA ~ UL.sim2$distance, col= "black", bg = cols, pch=mol, las = 1,
      xlim = c(400, 0), ylim = c(0, 1), cex = 1.5, 
      xlab="", ylab="")
 
-  matlines(lake$distance[lake$molecule == "DNA"], conf95.lake[lake$molecule == "DNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-  matlines(lake$distance[lake$molecule == "RNA"], conf95.lake[lake$molecule == "RNA", ],
-         lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "DNA"], conf95.lake[lake$molecule == "DNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+#   matlines(lake$distance[lake$molecule == "RNA"], conf95.lake[lake$molecule == "RNA", ],
+#          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
+
+# Add multiple regression lines
+clip(400, 0, 0, 1)
+abline(a = DNA.int.3c, b = DNA.slp.3c, col = "black", lwd = 2.5, lty = 6)
+
+clip(400, 0, 0, 1)
+abline(a = RNA.int.3c, b = RNA.slp.3c, col = "black", lwd = 2.5, lty = 4)
 
   axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
   axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
@@ -664,10 +716,17 @@ terr.rich <- rowSums((terr.lake > 0) * 1)
 terr.REL <- rowSums(terr.lake) / rowSums(w.dna) 
 
 design.dna <- design[which(design$molecule == "DNA" & design$type == "water"), ]
+
+terr.rich.log <- log(terr.rich)
+terr.REL.log <- log(terr.REL)
+
+terr.mod1 <- lm(terr.rich.log ~ design.dna$distance)
+terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
+
 ```
 
 
-# Soil Organisms Plot
+# Figure 4: Soil Organisms Plot
 
 ```{r}
 # Initial Plot
@@ -679,7 +738,7 @@ bar.layout <- layout(rbind(1, 2), height = c(4, 4))
 
 # Soil OTU Richness Across Gradient Plot
 plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(0, 1800), cex = 1.5, 
+     xlim = c(400, 0), ylim = c(20, 1800), cex = 1.5, log = "y", 
      xlab="", ylab="", xaxt="n")
 
   axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
@@ -699,7 +758,7 @@ plot(terr.rich ~ design.dna$distance, col= "black", pch=22, las = 1,
 
 # Soil OTU Relative Abundance Across Gradient Plot
 plot(terr.REL ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(0, 0.18), cex = 1.5, 
+     xlim = c(400, 0), ylim = c(0.005, 0.18), cex = 1.5, log = "y",
      xlab="", ylab="")
 
   axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)

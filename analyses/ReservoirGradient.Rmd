@@ -16,7 +16,7 @@ Effects of metacommunity processes on microbial assembly at the terrestrial-aqua
 ```{r results='hide', message=FALSE}
 rm(list=ls())
 getwd()
-setwd("~/GitHub/ReservoirGradient/analyses")
+#setwd("~/GitHub/ReservoirGradient/analyses")
 
 # Import Required Packages
 require("png")
@@ -33,191 +33,6 @@ require("plyr")
 require("raster") 
 require("gridExtra")
 require("vegan")
-```
-
-## Figu S1: Map of University Lake
-
-## Megan: please remove "nutrient maps" and put them in an "extra analylses" file
-## Megan: Change Bloomington symbol to black/white color, maybe star symbol
-```{r}
-# Load environmental data
-env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
-env.dat <- env.dat[-16,]
-```
-
-```{r results='hide', fig.keep='none', warning=FALSE}
-# ggplot theme
-theme_maps <- function(base_size = 12, base_family = "Arial"){
-  theme_bw(base_size = base_size, base_family = base_family) %+replace%
-    theme(panel.background = element_rect(fill = "white", color = "black", size = 1.5),
-          #panel.border = element_rect(color = "black"),
-        #panel.margin = unit(1,1,1,1),
-        panel.grid.major = element_line(colour = "white"),
-        panel.grid.minor = element_line(colour = "white"),
-        axis.ticks = element_line(color = "black", size = 1),
-        axis.text = element_text(size = 15),
-        axis.title = element_text(size = 20, face = "bold"),
-        legend.position = c(0.9,0.25)
-        #,axis.title.x = element_blank(),axis.title.y = element_blank()
-    )
-}
-
-# get shape files 
-## for map inset
-usa <- map_data("usa")
-IN <- map_data("state", region = "Indiana")
-
-## for main plot
-ul <- readOGR("../maps","UniversityLakePoly")
-#summary(ul) # Check projection and and datum
-#ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
-ul <- fortify(ul) # raster image for plotting with ggplot2
-
-# If using google map as baselayer
-#ul.coords <- c(lon = -86.503087, lat = 39.188686)
-#ul.map <- get_map(location = ul.coords, 
-#                  zoom = 17, #maptype = "terrain", 
-#                  source = "google", color = "bw")
-#base.map <- ggmap(ul.map, extent = "device", legend = "topleft")
-
-
-
-# Main Map
-main.map <- ggplot(aes(long,lat), data = env.dat) + 
-  geom_polygon(fill = "grey", size = 1, color = 'black', data = ul, alpha = 1) +
-  geom_point(size = 6, shape = 20) +
-  theme_maps()  + 
-  labs(x = "\nLatitude", y = "Longitude\n")
-
-print(main.map)
-
-# Inset Map
-inset <- ggplot() +
-  theme_maps() +
-  theme(axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        panel.border = element_rect(color = NULL)) +
-  labs(x = NULL, y = NULL)
-
-inset <- inset + geom_map(data = usa, map = usa,
-                    aes(x = long, y = lat, map_id = region),
-                    color = "black", fill = "#e7e7e7", size = 0.15)
-
-inset <- inset + geom_map(data = IN, map = IN,
-                    aes(x = long, y=lat, map_id = region),
-                    color = "black", fill = "black", size = 0.15)
-
-inset <- inset + geom_point(aes(x = -86.503087, y = 39.188686), color = "red", size = 2)
-
-print(inset)
-
-
-# Start Plotting File
-png(filename="../figures/FigureS1.png",
-    width = 1400, height = 1200, res = 96*2)
-
-grid.newpage()
-v1 <- viewport(width = 1, height = 1, x = 0.5, y = 0.5) #plot area for the main map
-v2 <- viewport(width = 0.4, height = 0.3, x = 0.765, y = 0.31) #plot area for the inset map
-print(main.map,vp = v1) 
-print(inset,vp = v2)
-
-dev.off() # this writes plot to folder
-graphics.off() # shuts down open devices
-```
-
-
-```{r fig.width=6, fig.height=4,echo=FALSE,fig.cap="University Lake Map"}
-library(png)
-library(grid)
-img <- readPNG("../figures/FigureS1.png")
-grid.raster(img)
-```
-
-## Figure S2: chemical and physical variables along reservoir gradient
-## Megan: fix white spots, etc. Are there other variables we could plot?
-```{r }
-
-# Start Plotting File
-png(filename="../figures/FigureS2.png",
-    width = 1200, height = 1200, res = 96*2)
-
-par(mfrow = c(2,2), oma = c(0,2,0,2)+0.5)
-    #, oma = c(5, 4, 0, 0) + 0.5)
-#par(mfrow = c(1,1), mar = c(1, 1, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
-
-# Total Phosphorus
-TP <- plot(env.dat$dist.dam, env.dat$TP, 
-     ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(0,140), xlim = c(-15, 400),
-     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-     yaxt = "n", xaxt = "n")
-box(lwd = 2)
-
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0", "40", "80", "120"), at = c(0, 40, 80, 120))
-                              
-axis(side = 1, lwd.ticks = 2,  labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
-   #labels = c("0", "100", "200", "300", "400"), 
-   at = c(0, 100, 200, 300, 400))
-
-
-mtext(expression(paste('Total Phosphorus (',mu,'g P L'^-1*')')), side = 2, line = 4, cex = 1)
-
-# Chlorophyll
-chla <- plot(env.dat$dist.dam, env.dat$chla, 
-     ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(0,30), xlim = c(-15, 400),
-     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-     yaxt = "n", xaxt = "n")
-box(lwd = 2)
-
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0", "10", "20", "30"), at = c(0, 10, 20, 30))
-
-axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
-   #labels = c("0", "100", "200", "300", "400"), 
-   at = c(0, 100, 200, 300, 400))
-
-mtext(expression(paste('Chlorophyll a (',mu,'g L'^-1*')')), side = 2, line = 4, cex = 1)
-
-
-#Dissolved Oxygen
-plot(env.dat$dist.dam, env.dat$DO, 
-     ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(5,10), xlim = c(-15, 400),
-     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-     yaxt = "n", xaxt = "n")
-box(lwd = 2)
-
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("5", "7.5", "10"), at = c(5,7.5, 10))
-
-axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
-   labels = c("0", "100", "200", "300", "400"), 
-   at = c(0, 100, 200, 300, 400))
-
-mtext(expression(paste('Dissolved Oxygen (mg L'^-1*')')), side = 2, line = 4, cex = 1)
-
-#pH
-plot(env.dat$dist.dam, env.dat$pH, 
-     ylab = "", xlab = "", cex.lab = 2, las = 1,
-     ylim = c(8,9), xlim = c(-15, 400),
-     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-     yaxt = "n", xaxt = "n")
-box(lwd = 2)
-
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("8", "8.5","9"), at = c(8, 8.5, 9))
-
-axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
-   labels = c("0", "100", "200", "300", "400"), 
-   at = c(0, 100, 200, 300, 400))
-
-mtext("pH", side = 2, line = 4, cex = 1)
-
-dev.off() # this writes plot to folder
-graphics.off() # shuts down open devices
 ```
 
 ## Fig 1: Microbial metabolism along reservoir gradient
@@ -932,4 +747,198 @@ plot(core.REL ~ design.dna$distance, col= "black", pch=22, las = 1, cex = 1.5,
 # Close Plot Device
 dev.off()
 graphics.off() 
+```
+
+
+
+## Figure S1: Map of University Lake
+```{r}
+# Load environmental data
+env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
+env.dat <- env.dat[-16,]
+```
+
+```{r results='hide', fig.keep='none', warning=FALSE}
+# ggplot theme
+theme_maps <- function(base_size = 12, base_family = "Arial"){
+  theme_bw(base_size = base_size, base_family = base_family) %+replace%
+    theme(panel.background = element_rect(fill = "white", color = "black", size = 1.5),
+          #panel.border = element_rect(color = "black"),
+        #panel.margin = unit(1,1,1,1),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        legend.position = c(0.9,0.25)
+        #,axis.title.x = element_blank(),axis.title.y = element_blank()
+    )
+}
+
+# get shape files 
+## for map inset
+usa <- map_data("usa")
+IN <- map_data("state", region = "Indiana")
+
+## for main plot
+ul <- readOGR("../maps","UniversityLakePoly")
+#summary(ul) # Check projection and and datum
+#ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
+ul <- fortify(ul) # raster image for plotting with ggplot2
+
+# If using google map as baselayer
+#ul.coords <- c(lon = -86.503087, lat = 39.188686)
+#ul.map <- get_map(location = ul.coords, 
+#                  zoom = 17, #maptype = "terrain", 
+#                  source = "google", color = "bw")
+#base.map <- ggmap(ul.map, extent = "device", legend = "topleft")
+
+
+
+# Main Map
+main.map <- ggplot(aes(long,lat), data = env.dat) + 
+  geom_polygon(fill = "grey", size = 0.5, color = 'black', data = ul, alpha = 1) +
+  geom_point(size = 6, shape = 20) +
+  theme_maps()  + 
+  labs(x = "\nLatitude", y = "Longitude\n") +
+  annotate("text", x = -86.5010, y = 39.18943, 
+           label = "DAM", face = "bold")
+print(main.map)
+
+# Inset Map
+inset <- ggplot() +
+  theme_maps() +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.border = element_rect(color = NULL)) +
+  labs(x = NULL, y = NULL)
+
+inset <- inset + geom_map(data = usa, map = usa,
+                    aes(x = long, y = lat, map_id = region),
+                    color = "black", fill = "#e7e7e7", size = 0.15)
+
+inset <- inset + geom_map(data = IN, map = IN,
+                    aes(x = long, y=lat, map_id = region),
+                    color = "black", fill = "black", size = 0.15)
+
+inset <- inset + geom_point(aes(x = -86.503087, y = 39.188686), color = "white", shape = 18, size = 2)
+
+print(inset)
+
+
+# Start Plotting File
+png(filename="../figures/FigureS1.png",
+    width = 1400, height = 1200, res = 96*2)
+
+grid.newpage()
+v1 <- viewport(width = 1, height = 1, x = 0.5, y = 0.5) #plot area for the main map
+v2 <- viewport(width = 0.5, height = 0.4, x = 0.715, y = 0.26) #plot area for the inset map
+print(main.map,vp = v1) 
+print(inset,vp = v2)
+
+dev.off() # this writes plot to folder
+graphics.off() # shuts down open devices
+```
+
+
+```{r fig.width=6, fig.height=4,echo=FALSE,fig.cap="University Lake Map"}
+library(png)
+library(grid)
+img <- readPNG("../figures/FigureS1.png")
+grid.raster(img)
+```
+
+## Figure S2: chemical and physical variables along reservoir gradient
+
+```{r }
+
+# Start Plotting File
+png(filename="../figures/FigureS2.png",
+    width = 1500, height = 1200, res = 96*2)
+
+par(mfrow = c(2,2))
+par(mar = c(5, 6, 1, 2) + 0.5)
+
+# Total Phosphorus
+TP <- plot(rev(env.dat$dist.dam), env.dat$TP, 
+     ylab = "", xlab = "", cex.lab = 2, las = 1,
+     ylim = c(0,140), xlim = c(-15, 400),
+     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
+     yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("0", "40", "80", "120"), at = c(0, 40, 80, 120))
+                              
+axis(side = 1, lwd.ticks = 2,  labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
+   #labels = c("0", "100", "200", "300", "400"), 
+   at = c(0, 100, 200, 300, 400))
+
+
+mtext(expression(paste('Total Phosphorus (',mu,'g P L'^-1*')')), side = 2, line = 4, cex = 1)
+
+par(mar = c(5, 5, 1, 3) + 0.5)
+
+# Chlorophyll
+chla <- plot(rev(env.dat$dist.dam), env.dat$chla, 
+     ylab = "", xlab = "", cex.lab = 2, las = 1,
+     ylim = c(0,30), xlim = c(-15, 400),
+     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
+     yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("0", "10", "20", "30"), at = c(0, 10, 20, 30))
+
+axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
+   #labels = c("0", "100", "200", "300", "400"), 
+   at = c(0, 100, 200, 300, 400))
+
+mtext(expression(paste('Chlorophyll a (',mu,'g L'^-1*')')), side = 2, line = 4, cex = 1)
+
+par(mar = c(5, 6, 0, 2) + 0.5)
+#Dissolved Oxygen
+plot(rev(env.dat$dist.dam), env.dat$DO, 
+     ylab = "", xlab = "", cex.lab = 2, las = 1,
+     ylim = c(5,10), xlim = c(-15, 400),
+     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
+     yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("5", "7.5", "10"), at = c(5,7.5, 10))
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
+   labels = c("0", "100", "200", "300", "400"), 
+   at = rev(c(0, 100, 200, 300, 400)))
+
+mtext(expression(paste('Dissolved Oxygen (mg L'^-1*')')), side = 2, line = 4, cex = 1)
+
+text(x = 35, y = 5.1, "STREAM", font = 2)
+text(x = 375, y = 5.1, "DAM", font = 2)
+
+
+#pH
+par(mar = c(5, 5, 0, 3) + 0.5)
+plot(rev(env.dat$dist.dam), env.dat$pH, 
+     ylab = "", xlab = "", cex.lab = 2, las = 1,
+     ylim = c(8,9), xlim = c(-15, 400),
+     pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
+     yaxt = "n", xaxt = "n")
+box(lwd = 2)
+
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("8", "8.5","9"), at = c(8, 8.5, 9))
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
+   labels = c("0", "100", "200", "300", "400"), 
+   at = rev(c(0, 100, 200, 300, 400)))
+
+mtext("pH", side = 2, line = 4, cex = 1)
+
+text(x = 35, y = 8.02, "STREAM", font = 2)
+text(x = 375, y = 8.02, "DAM", font = 2)
+
+dev.off() # this writes plot to folder
+graphics.off() # shuts down open devices
 ```

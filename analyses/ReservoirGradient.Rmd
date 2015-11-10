@@ -295,7 +295,6 @@ soil <- alpha.div[alpha.div$type == "soil", ]
 
 # Calculate Linear Model
 model.rich <- lm(lake$S.obs ~ lake$distance * lake$molecule)
-summary(model.rich)
 
 # Calculate Confidance Intervals of Model
 newdata.rich <- data.frame(cbind(lake$molecule, lake$distance))
@@ -327,8 +326,6 @@ UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
 
 # Calculate Linear Model
 model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
-summary(model.terr)
-D2.R2 <- round(summary(model.terr)$r.squared, 2)
 
 # Calculate Confidance Intervals of Model
 newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
@@ -337,6 +334,7 @@ conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
 # Dummy Variables Regression Model ("Terrestrial Influence")
 D2 <- (UL.sim$molecule == "RNA")*1
 fit.Fig.3b <- lm(UL.sim$bray.mean ~ UL.sim$distance + D2 + UL.sim$distance*D2)
+D2.R2 <- round(summary(fit.Fig.3b)$r.squared, 2)
 summary(fit.Fig.3b)
 
 DNA.int.3b <- fit.Fig.3b$coefficients[1]
@@ -367,7 +365,7 @@ conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
 # Dummy Variables Regression Model ("Lake Influence")
 D3 <- (UL.sim2$molecule == "RNA")*1
 fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
-summary(fit.Fig.3c)
+# summary(fit.Fig.3c)
 
 DNA.int.3c <- fit.Fig.3c$coefficients[1]
 DNA.slp.3c <- fit.Fig.3c$coefficients[2]
@@ -522,49 +520,34 @@ w.dna <- OTUs[which(design$molecule == "DNA" & design$type == "water"), ]
 w.rna <- OTUs[which(design$molecule == "RNA" & design$type == "water"), ]
 
 nvr.act <- which(colSums(w.rna) == 0)
-
 terr.lake <- w.dna[ , c(names(nvr.act))]
-
 terr.rich <- rowSums((terr.lake > 0) * 1)
-
 terr.REL <- rowSums(terr.lake) / rowSums(w.dna) 
-
 design.dna <- design[which(design$molecule == "DNA" & design$type == "water"), ]
-
 terr.rich.log <- log10(terr.rich)
 terr.REL.log <- log10(terr.REL)
 
 terr.mod1 <- lm(terr.rich.log ~ design.dna$distance)
-terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
-
 summary(terr.mod1)
+T1.R2 <- round(summary(terr.mod1)$r.squared, 2)
+T1.int <- terr.mod1$coefficients[1]
+T1.slp <- terr.mod1$coefficients[2]
+
+terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
 summary(terr.mod2)
-
-# # Calculate Confidance Intervals of Model
-# newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
-# conf95.lake <- predict(terr.mod1, newdata.lake, interval="confidence")
-# 
-# # Dummy Variables Regression Model ("Lake Influence")
-# D3 <- (UL.sim2$molecule == "RNA")*1
-# fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
-# summary(fit.Fig.3c)
-# 
-# DNA.int.3c <- fit.Fig.3c$coefficients[1]
-# DNA.slp.3c <- fit.Fig.3c$coefficients[2]
-# RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
-# RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
-
+T2.R2 <- round(summary(terr.mod2)$r.squared, 2)
+T2.int <- terr.mod2$coefficients[1]
+T2.slp <- terr.mod2$coefficients[2]
 ```
 
 
-# Figure 4: Soil Organisms Plot
-
+# Figure 3: Soil Organisms Plot
 ```{r}
 # Initial Plot
-png(filename="../figures/Figure4.png",
+png(filename="../figures/Figure3.png",
     width = 1200, height =1200, res = 96*2)
 
-par(mfrow = c(1,1), mar = c(1, 5, 1, 1), oma = c(4, 4, 0, 0) + 0.5)
+par(mfrow = c(1,1), mar = c(0, 7, 0, 1) + 0.5, oma = c(4, 2, 0, 0) + 0.5)
 bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
 
 # Soil OTU Richness Across Gradient Plot
@@ -572,41 +555,40 @@ plot(terr.rich.log ~ design.dna$distance, col= "black", pch=22, las = 1,
      xlim = c(400, 0), ylim = c(1.5, 3.5), cex = 1.5,  
      xlab="", ylab="", xaxt="n", yaxt="n")
 
-  axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
-  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 2, lwd.ticks = 2, at = c(2, 3), labels = c(10^2, 10^3), cex.axis = 1, las = 1)
-  axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(10, 100, by = 10), 
-       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
-  axis(side = 2, lwd.ticks = 2, at = c(2, 3), tck=0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(10, 100, by = 10), 
-       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)    
-  axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=0.02, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(10, 100, by = 10), 
-       seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
+clip(0, 375, 1.5, 3.4)
+abline(a = T1.int, b = T1.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, 3, labels = bquote(r^2 == .(T1.R2)), cex = 1)
 
-  # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-  mtext("Transient\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
-  box(lwd=2)
-  
-#   # Add multiple regression lines
-#   clip(400, 0, 0, 1)
-#   abline(a = DNA.int.3c, b = DNA.slp.3c, col = "black", lwd = 2.5, lty = 6)
-# 
-#   clip(400, 0, 0, 1)
-#   abline(a = RNA.int.3c, b = RNA.slp.3c, col = "black", lwd = 2.5, lty = 4)
-  
+axis(side = 1, lwd.ticks = 2, tck = -0.02, labels = F, cex.axis = 1, las = 1)
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
+axis(side = 2, lwd.ticks = 2, at = c(2, 3), labels = c(10^2, 10^3), cex.axis = 1, las = 1)
+axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(10, 100, by = 10), 
+     seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
+axis(side = 2, lwd.ticks = 2, at = c(2, 3), tck=0.01, labels = F,  cex.axis = 2, las = 1)
+axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(10, 100, by = 10), 
+     seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)    
+axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=0.02, labels = F,  cex.axis = 2, las = 1)
+axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(10, 100, by = 10), 
+     seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
+
+mtext("Transient\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
+box(lwd=2)
 
 # Soil OTU Relative Abundance Across Gradient Plot
 plot(terr.REL.log ~ design.dna$distance, col= "black", pch=22, las = 1,
      xlim = c(400, 0), ylim = c(-2.5, -.5), cex = 1.5, 
      xlab="", ylab="", xaxt="n", yaxt="n")
 
+clip(0, 375, -2.5, -0.5)
+abline(a = T2.int, b = T2.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, -1, labels = bquote(r^2 == .(T2.R2)), cex = 1)
+
   axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
   axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+  axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1)
   axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
   axis(side = 2, lwd.ticks = 2, at = c(-2, -1), labels = c(0.01, 0.1), cex.axis = 1, las = 1)
   axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(0.001, 0.01, by = 0.001), 
@@ -619,11 +601,10 @@ plot(terr.REL.log ~ design.dna$distance, col= "black", pch=22, las = 1,
   axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(0.001, 0.01, by = 0.001), 
        seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)
 
+mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
+mtext("Transient\nRelative\nAbundance", side = 2, line = 4, cex=1.5)
 
-  mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-  mtext("Transient\nRelative\nAbundance", side = 2, line = 4, cex=1.5)
-
-  box(lwd=2)  
+box(lwd=2)  
   
 
 # Close Plot Defice
@@ -632,9 +613,7 @@ graphics.off()
 ```
 
 ```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Transient Species Distributions "}
-library(png)
-library(grid)
-img <- readPNG("../figures/Figure4.png")
+img <- readPNG("../figures/Figure3.png")
 grid.raster(img)
 ```
 
@@ -660,7 +639,7 @@ core.REL <- rowSums(core.total) / rowSums(w.dna)
 
 # Plot Core Community
 ```{r}
-png(filename="../figures/Figure5.png",
+png(filename="../figures/Figure4.png",
     width = 1200, height =1200, res = 96*2)
 
 par(mfrow = c(1,1), mar = c(1, 5, 1, 1), oma = c(4, 4, 0, 0) + 0.5)
@@ -710,7 +689,10 @@ dev.off()
 graphics.off() 
 ```
 
-
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap=" "}
+img <- readPNG("../figures/Figure4.png")
+grid.raster(img)
+```
 
 ## Figure S1: Map of University Lake
 ```{r}

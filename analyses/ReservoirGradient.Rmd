@@ -431,7 +431,7 @@ bar.layout <- layout(rbind(1, 2), height = c(4, 4))
 
 # Richness Across Gradient Plot
 plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
-     xlim = c(400, 0), ylim = c(0, 2750), cex = 1.5, 
+     xlim = c(400, -15), ylim = c(0, 2750), cex = 1.5, 
      xlab="", ylab="", xaxt="n")
 
 #   matlines(lake$distance[lake$molecule == "DNA"], conf95.rich[lake$molecule == "DNA", ],
@@ -445,13 +445,17 @@ abline(a = DNA.int.3a, b = DNA.slp.3a, col = "black", lwd = 2.5, lty = 6)
 abline(a = RNA.int.3a, b = RNA.slp.3a, col = "black", lwd = 2.5, lty = 4)
 text(40, 1500, labels = bquote(R^2 == .(D1.R2)), cex = 1)
 
-axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1)
+axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1,
+     at = c(0, 100, 200, 300, 400))
 axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
+axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))
 axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400)) 
 axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
 axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
 
 mtext("Richness\n(S)" , side = 2, line = 4, cex=1.5)
@@ -464,7 +468,7 @@ box(lwd=2)
 # Terrestrial Influence Plot
 
 plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, 
-     las = 1, xlim = c(400, 0), ylim = c(0, 0.25), cex = 1.5, 
+     las = 1, xlim = c(400, -15), ylim = c(0, 0.25), cex = 1.5, 
      xlab="", ylab="", xaxt="n")
 
 #   matlines(lake$distance[lake$molecule == "DNA"], conf95.terr[lake$molecule == "DNA", ],
@@ -478,13 +482,17 @@ abline(a = DNA.int.3b, b = DNA.slp.3b, col = "black", lwd = 2.5, lty = 6)
 abline(a = RNA.int.3b, b = RNA.slp.3b, col = "black", lwd = 2.5, lty = 4)
 text(40, 0.125, labels = bquote(R^2 == .(D2.R2)), cex = 1)
 
-axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
+axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1,
+     labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
 axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1)    
+axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1, 
+     at = c(400, 300, 200, 100, 000))
 axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(400, 300, 200, 100, 000))
 axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(400, 300, 200, 100, 000))
 axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
 
 mtext("Terrestrial\nInfluence" , side = 2, line = 4, cex=1.5)

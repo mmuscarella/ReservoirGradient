@@ -669,46 +669,43 @@ core.REL <- rowSums(core.total) / rowSums(w.dna)
 # Plot Core Community
 ```{r}
 png(filename="../figures/Figure4.png",
-    width = 1200, height =1200, res = 96*2)
+    width = 1800, height =1200, res = 96*2)
 
-par(mfrow = c(1,1), mar = c(1, 5, 1, 1), oma = c(4, 4, 0, 0) + 0.5)
-bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
+par(mfrow = c(1,1), mar = c(5, 5, 1, 1) + 0.5)
 
-# Soil OTU Richness Across Gradient Plot
-plot(core.rich ~ design.dna$distance, col= "black", pch=22, las = 1, 
-    ylim = c(12,16), xlim = c(400,0), cex = 1.5, 
-     xlab="", ylab="", xaxt="n")
+plot(core.REL ~ design.dna$distance, col= colors()[290], pch=22, las = 1, cex = 1.5, 
+     xlab="", ylab="", xlim = c(400, 0), ylim = c(0, 0.3), bg = colors()[290])
 
-  axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 1, las = 1)
+  axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
   axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)                        
+  axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)    
   axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
   axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
   axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
   axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)     
   axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-
-  # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-  mtext("Core\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
-
-  box(lwd=2)
   
-
-# Soil OTU Relative Abundance Across Gradient Plot
-plot(core.REL ~ design.dna$distance, col= "black", pch=22, las = 1, cex = 1.5, 
-     xlab="", ylab="", xlim = c(400, 0))
-
-  axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)  
-  axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)           
-  axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-  axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)   
-  axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-
+  col.range <- c(330, 310, 285, 261)
+  col.index <- 1
+  for(i in c(0.60, 0.70, 0.80, 0.90)){
+    lake.core.i <- lake.rna[, which((colSums(lake.rna.pa) / 
+                                   nrow(lake.rna.pa)) >= i)]
+    core.total.i <- w.dna[, colnames(lake.core.i)]
+    core.rich.i <- rowSums((core.total.i > 0) * 1)
+    core.REL.i <- rowSums(core.total.i) / rowSums(w.dna) 
+    
+    points(core.REL.i ~ design.dna$distance, col = colors()[col.range[col.index]], pch = 22,
+           las = 1, cex = 1.5)
+    col.index <- col.index + 1
+  }
+  
+  legend("topright", c(".60", ".70", ".75", ".80", ".90"), 
+         col = c(colors()[330], colors()[310], colors()[290], colors()[285], colors()[261]), 
+         pt.bg = c("white", "white", colors()[290], "white", "white"),
+         pch = 22, cex = 1)
+  
   mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-  mtext("Core\nRelative\nAbundance", side = 2, line = 4, cex=1.5)
+  mtext("Core Relative Abundance", side = 2, line = 4, cex=1.5)
 
   box(lwd=2)  
 
@@ -718,7 +715,7 @@ dev.off()
 graphics.off() 
 ```
 
-```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap=" "}
+```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Core Lake Abundance"}
 img <- readPNG("../figures/Figure4.png")
 grid.raster(img)
 ```

@@ -51,23 +51,33 @@ metab <- cbind(metab, BGE)
 # Figure 1: Microbial Processes Across the Gradient
 ```{r results='hide'}
 png(filename="../figures/Figure1.png",
-    width = 1200, height = 1200, res = 96*2)
-par(mfrow = c(1,1), mar = c(1, 7, 1, 7), oma = c(5, 4, 0, 0) + 0.5)
-bar.layout <- layout(rbind(1, 2, 3), height = c(4, 4, 4)) 
+    width = 1200, height =1200, res = 96*2)
+par(mfrow = c(1,1), mar = c(0, 5, 0, 1) + 0.5, oma = c(6, 2, 0, 0) + 0.5)
+bar.layout <- layout(rbind(1, 2, 3), height = c(3, 3, 3)) 
 #layout.show(bar.layout)
 
 # Baterial Producivity (BP)
 plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), 
      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
+     at = c(0, 100, 200, 300, 400))
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
     labels = c("0.0", "1.0", "2.0"), at = c(0, 1.0, 2.0))
-axis(side = 4, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 1, 2))
-axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 1.5, las = 1, 
-     at = c(0, 100, 200, 300, 400))  
-axis(side = 3, lwd.ticks = 2, labels = F,  cex.axis = 1.5, las = 1,
+axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
      at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 1.0, 2.0))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 1.0, 2.0))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 1.0, 2.0))
+
 box(lwd = 2)
 
 mtext(expression(paste('BP (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
@@ -86,14 +96,24 @@ text(40, 1.8, labels = bquote(r^2 == .(BP.R2)), cex = 1.5)
 plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0, 4), 
      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
+     at = c(0, 100, 200, 300, 400))
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
     labels = c("0.0", "2.0", "4.0"), at = c(0, 2, 4))
-axis(side = 4, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
-   at = c(1, 2, 3))
-axis(side = 1, lwd.ticks = 2, labels = F,  cex.axis = 1.5, las = 1, 
-     at = c(0, 100, 200, 300, 400))  
-axis(side = 3, lwd.ticks = 2, labels = F,  cex.axis = 1.5, las = 1,
+axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
      at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 2, 4))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 2, 4))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 2, 4))
+
 box(lwd = 2)
 
 mtext(expression(paste('BR (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
@@ -111,14 +131,23 @@ text(40, 3.75, labels = bquote(r^2 == .(BR.R2)), cex = 1.5)
 plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), 
      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, 
+     labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
 axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
     labels = c("0.0", "0.3", "0.6"), at = c(0, 0.3, 0.6))
-axis(side = 4, lwd.ticks = 2, labels = F,  cex.axis = 2, las = 1, 
+axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
    at = c(0, 0.3, 0.6))
-axis(side = 1, lwd.ticks = 2,  cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
-   labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
-axis(side = 3, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, 
-   at = c(0, 100, 200, 300, 400))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 0.3, 0.6))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 0.3, 0.6))
 
 box(lwd = 2)
 
@@ -139,7 +168,7 @@ graphics.off() # shuts down open devices
 par(opar)
 ```
 
-```{r fig.width=4, fig.height=4,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}
+```{r fig.width=4, fig.height=5,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}
 img <- readPNG("../figures/Figure1.png")
 grid.raster(img)
 ```

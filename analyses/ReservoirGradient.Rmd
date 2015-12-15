@@ -720,8 +720,8 @@ png(filename="../figures/Figure4.png",
 
 plot(in.lake.core.soil.REL ~ design.dna$distance, 
      ylim = c(0, 1), xlim = c(400, 0), pch = 22, bg = "black", 
-     ylab = "", xlab = "", xaxt = "n", yaxt = "n")
-points(in.lake.core.water.REL ~ design.dna$distance, pch = 22)
+     ylab = "", xlab = "", xaxt = "n", yaxt = "n", cex = 2, cex.lab = 2)
+points(in.lake.core.water.REL ~ design.dna$distance, cex = 2, pch = 22)
 
 axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
 axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
@@ -746,8 +746,8 @@ x <- lake$distance
 #power <- round(summary(fit.t.pow)$coefficients[1], 3)
 #power.se <- round(summary(m)$coefficients[2], 3)
 
-lines(x, predict(fit.t.mm, list(x = x)))
-lines(x, predict(fit.l.mm, list(x = x)))
+lines(x, predict(fit.t.mm, list(x = x)), lwd = 2.5, lty = 6)
+lines(x, predict(fit.l.mm, list(x = x)), lwd = 2.5, lty = 6)
 
 dev.off()
 graphics.off() 

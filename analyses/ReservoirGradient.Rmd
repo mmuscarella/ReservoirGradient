@@ -819,7 +819,7 @@ main.map <- ggplot(aes(long,lat), data = env.dat) +
   theme_maps()  + 
   labs(x = "\nLatitude", y = "Longitude\n") +
   annotate("text", x = -86.5010, y = 39.18943, 
-           label = "DAM", face = "bold")
+           label = "DAM", fontface = "bold")
 print(main.map)
 
 # Inset Map

@@ -34,6 +34,7 @@ require("plyr")
 require("raster") 
 require("gridExtra")
 require("vegan")
+require("xtable")
 ```
 
 ## Fig 1: Microbial metabolism along reservoir gradient
@@ -741,7 +742,7 @@ grid.raster(img)
 ```
 
 # Taxonomic Analysis
-```{r}
+```{r, results="asis"}
 # Taxa comprising total lake 'core', those from soils, and those not from soils
 core.taxa <- OTU.tax[OTU.tax$OTU %in% colnames(in.lake.core),]
 
@@ -776,10 +777,30 @@ core.water.taxa.DNA.REL.bounds <- cbind(core.water.taxa.DNA.REL.min, core.water.
 colnames(core.water.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max")
 
 # core.soil and core.water are summaries of lake core
-core.soil <- as.data.frame(cbind(core.soil.taxa$Class, core.soil.taxa$Order, core.soil.taxa.DNA.REL.bounds))
+core.soil <- as.data.frame(cbind(core.soil.taxa$Class, core.soil.taxa$Order,
+                                 round(core.soil.taxa.DNA.REL.bounds, 2)))
 colnames(core.soil) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
-core.water <- as.data.frame(cbind(core.water.taxa$Class, core.water.taxa$Order, core.water.taxa.DNA.REL.bounds))
+core.water <- as.data.frame(cbind(core.water.taxa$Class, core.water.taxa$Order, 
+                                  round(core.water.taxa.DNA.REL.bounds,2)))
 colnames(core.water) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
+
+# Core Soil LaTeX Table
+addtorow <- list()
+addtorow$pos <- list(0, 0)
+addtorow$command <- c("& \\multicolumn{1}{c}{Class} & \\multicolumn{1}{c}{Order} & 
+                      \\multicolumn{2}{c}{DNA} & \\multicolumn{2}{c}{RNA} \\\\\n", 
+                      "& &  & min & max & min & max \\\\\n")
+core.soil.tab <- xtable(core.soil)
+align(core.soil.tab) <- "crrrrrr"
+print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, 
+      type= "latex", file="../tables/table1.tex")
+print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
+
+core.water.tab <- xtable(core.water)
+align(core.water.tab) <- "crrrrrr"
+print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, 
+      type= "latex", file="../tables/table2.tex")
+print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
 ```
 
 ## Figure S1: Map of University Lake

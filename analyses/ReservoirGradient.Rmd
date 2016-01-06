@@ -685,7 +685,7 @@ in.lake.core.soil.REL <- rowSums(in.lake.core.from.soils) / rowSums(w.dna)
 in.lake.core.water.REL <- rowSums(in.lake.core.not.soils) / rowSums(w.dna)
 ```
 
-# Model Fit
+## Model Fit
 ```{r}
 
 terrestrial <- data.frame(in.lake.core.soil.REL, design.dna$distance)

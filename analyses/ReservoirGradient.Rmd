@@ -34,6 +34,7 @@ require("plyr")
 require("raster") 
 require("gridExtra")
 require("vegan")
+require("xtable")
 ```
 
 ## Fig 1: Microbial metabolism along reservoir gradient
@@ -461,7 +462,7 @@ axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
 mtext("Richness\n(S)" , side = 2, line = 4, cex=1.5)
 
 legend("topright", legend = levels(lake$molecule), pch=c(22, 24), 
-       pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25, ncol=2)
+       pt.bg = c("gray15", "gray75"), bty='n', cex = 1, ncol=2)
 
 box(lwd=2)
 
@@ -589,7 +590,7 @@ bar.layout <- layout(rbind(1, 2), height = c(4, 4))
 
 # Soil OTU Richness Across Gradient Plot
 plot(terr.rich.log ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(1.5, 3.5), cex = 1.5,  
+     xlim = c(400, -15), ylim = c(1.5, 3.5), cex = 1.5,  
      xlab="", ylab="", xaxt="n", yaxt="n")
 
 clip(0, 375, 1.5, 3.4)
@@ -616,7 +617,7 @@ box(lwd=2)
 
 # Soil OTU Relative Abundance Across Gradient Plot
 plot(terr.REL.log ~ design.dna$distance, col= "black", pch=22, las = 1,
-     xlim = c(400, 0), ylim = c(-2.5, -.5), cex = 1.5, 
+     xlim = c(400, -15), ylim = c(-2.5, -.5), cex = 1.5, 
      xlab="", ylab="", xaxt="n", yaxt="n")
 
 clip(0, 375, -2.5, -0.5)
@@ -681,7 +682,7 @@ mm <- function(x,V,K){
 fit.t.1 <- lm(terrestrial$t.rel.abund ~ terrestrial$distance)
 fit.t.2 <- lm(terrestrial$t.rel.abund ~ poly(terrestrial$distance,2,raw=TRUE))
 fit.t.3 <- lm(terrestrial$t.rel.abund ~ poly(terrestrial$distance,3,raw=TRUE))
-fit.t.mm <- nls(t.rel.abund ~ mm((400-distance), max, halfsat), data = terrestrial, start = list(max = 0.75, halfsat = (400-325)), trace = T)
+fit.t.mm <- nls(t.rel.abund ~ mm((400-distance[1:15]), max, halfsat), data = terrestrial[1:15,], start = list(max = 0.75, halfsat = (400-325)), trace = T)
 summary(fit.t.mm)$coefficients
 
 lake <- data.frame(in.lake.core.water.REL, design.dna$distance)
@@ -691,7 +692,7 @@ colnames(lake) <- c("l.rel.abund", "distance")
 fit.l.1 <- lm(lake$l.rel.abund ~ lake$distance)
 fit.l.2 <- lm(lake$l.rel.abund ~ poly(lake$distance,2,raw=TRUE))
 fit.l.3 <- lm(lake$l.rel.abund ~ poly(lake$distance,3,raw=TRUE))
-fit.l.mm <- nls(l.rel.abund ~ mm((400-distance), max, halfsat), data = lake, start = list(max = 0.20, halfsat = (400-300)), trace = T)
+fit.l.mm <- nls(l.rel.abund ~ mm((400-distance), max, halfsat), data = lake[1:15,], start = list(max = 0.20, halfsat = (400-300)), trace = T)
 #fit.l.pow = nls(l.rel.abund ~ I(distance^power), data=lake, start=list(power = -0.06590247), trace = T)
 ```
 
@@ -701,7 +702,7 @@ png(filename="../figures/Figure4.png",
     width = 1200, height =1200, res = 96*2)
 
 plot(in.lake.core.soil.REL ~ design.dna$distance, 
-     ylim = c(0, 1), xlim = c(400, 0), pch = 22, bg = "black", 
+     ylim = c(0, 1), xlim = c(400, -15), pch = 22, bg = "black", 
      ylab = "", xlab = "", xaxt = "n", yaxt = "n", cex = 2, cex.lab = 2)
 points(in.lake.core.water.REL ~ design.dna$distance, cex = 2, pch = 22)
 
@@ -715,11 +716,11 @@ axis(side = 4, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), tck=-0.01, labels = F,
 axis(side = 4, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), tck=0.01, labels = F,  cex.axis = 2, las = 1)
 
 legend("topright", c("Terrestrial", "Lake"), col = c("black", "black"),
-         pt.bg = c("black", "white"), pch = 22, cex = 1, bty = "n")
+         pt.bg = c("black", "white"), pch = 22, cex = 1.25, bty = "n")
 
 box(lwd=2)
 
-x <- lake$distance
+x <- lake$distance[1:15]
 
 #lines(terrestrial$distance, predict(fit.t.2, data.frame(x=x)))
 
@@ -741,7 +742,7 @@ grid.raster(img)
 ```
 
 # Taxonomic Analysis
-```{r}
+```{r, results="asis"}
 # Taxa comprising total lake 'core', those from soils, and those not from soils
 core.taxa <- OTU.tax[OTU.tax$OTU %in% colnames(in.lake.core),]
 
@@ -776,10 +777,30 @@ core.water.taxa.DNA.REL.bounds <- cbind(core.water.taxa.DNA.REL.min, core.water.
 colnames(core.water.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max")
 
 # core.soil and core.water are summaries of lake core
-core.soil <- as.data.frame(cbind(core.soil.taxa$Class, core.soil.taxa$Order, core.soil.taxa.DNA.REL.bounds))
+core.soil <- as.data.frame(cbind(core.soil.taxa$Class, core.soil.taxa$Order,
+                                 round(core.soil.taxa.DNA.REL.bounds, 2)))
 colnames(core.soil) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
-core.water <- as.data.frame(cbind(core.water.taxa$Class, core.water.taxa$Order, core.water.taxa.DNA.REL.bounds))
+core.water <- as.data.frame(cbind(core.water.taxa$Class, core.water.taxa$Order, 
+                                  round(core.water.taxa.DNA.REL.bounds,2)))
 colnames(core.water) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
+
+# Core Soil LaTeX Table
+addtorow <- list()
+addtorow$pos <- list(0, 0)
+addtorow$command <- c("& \\multicolumn{1}{c}{Class} & \\multicolumn{1}{c}{Order} & 
+                      \\multicolumn{2}{c}{DNA} & \\multicolumn{2}{c}{RNA} \\\\\n", 
+                      "& &  & min & max & min & max \\\\\n")
+core.soil.tab <- xtable(core.soil)
+align(core.soil.tab) <- "crrrrrr"
+print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, 
+      type= "latex", file="../tables/table1.tex")
+print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
+
+core.water.tab <- xtable(core.water)
+align(core.water.tab) <- "crrrrrr"
+print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, 
+      type= "latex", file="../tables/table2.tex")
+print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
 ```
 
 ## Figure S1: Map of University Lake

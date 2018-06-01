@@ -16,163 +16,26 @@ Effects of metacommunity processes on microbial assembly at the terrestrial-aqua
 ```{r results='hide', message=FALSE}
 rm(list=ls())
 getwd()
-setwd("~/GitHub/ReservoirGradient/analyses")
+# setwd("~/GitHub/ReservoirGradient/analyses")
 opar <- par(no.readonly = TRUE)  # Saves plot defaults
 
 # Import Required Packages
 require("png")
 require("grid")
-require("ggplot2")      
-require("maps")
-require("rgdal")
-require("raster")
-require("OpenMx")
 require("reshape")
-require("ggmap")
+require("tidyverse")      
+# require("maps")
+# require("rgdal")
+# require("raster")
+# require("OpenMx")
+# require("ggmap")
 require("akima")
-require("plyr")
-require("raster") 
+# require("raster") 
 require("gridExtra")
 require("vegan")
-require("xtable")
+# require("xtable")
 ```
 
-## Fig 1: Microbial metabolism along reservoir gradient
-
-Read in data 
-```{r results='hide'}
-metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
-colnames(metab)[1] <- "dist"
-colnames(metab)[2] <- "BP"
-colnames(metab)[3] <- "BR"
-BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
-metab <- cbind(metab, BGE)
-```
-
-# Figure 1: Microbial Processes Across the Gradient
-```{r results='hide'}
-png(filename="../figures/Figure1.png",
-    width = 1200, height =1200, res = 96*2)
-par(mfrow = c(1,1), mar = c(0, 5, 0, 1) + 0.5, oma = c(6, 2, 0, 0) + 0.5)
-bar.layout <- layout(rbind(1, 2, 3), height = c(3, 3, 3)) 
-#layout.show(bar.layout)
-
-# Baterial Producivity (BP)
-plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), 
-     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-
-axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
-     at = c(0, 100, 200, 300, 400))
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0.0", "1.0", "2.0"), at = c(0, 1.0, 2.0))
-axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))
-axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 1.0, 2.0))
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-     at = c(0, 100, 200, 300, 400)) 
-axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-    at = c(0, 1.0, 2.0))
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))     
-axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 1.0, 2.0))
-
-box(lwd = 2)
-
-mtext(expression(paste('BP (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
-
-# Quadratic regression for BP
-dist <- metab$dist
-dist2 <- metab$dist^2
-BP.fit <- lm(metab$BP ~ dist + dist2)
-BP.R2 <- round(summary(BP.fit)$r.squared, 2)
-dist.vals <- seq(0, 375, 25)
-BP.pred <- predict(BP.fit,list(dist = dist.vals, dist2 = dist.vals^2))
-lines(dist.vals, BP.pred, col = "black", lwd = 2.5, lty = 6)
-text(40, 1.8, labels = bquote(italic(R)^2 == .(BP.R2)), cex = 1.5)
-
-# Bacterial Respiration (BR)
-plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0, 4), 
-     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-
-axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
-     at = c(0, 100, 200, 300, 400))
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0.0", "2.0", "4.0"), at = c(0, 2, 4))
-axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))
-axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 2, 4))
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-     at = c(0, 100, 200, 300, 400)) 
-axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-    at = c(0, 2, 4))
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))     
-axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 2, 4))
-
-box(lwd = 2)
-
-mtext(expression(paste('BR (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
-
-# Simple linear regression for BR
-BR.fit <- lm(metab$BR ~ metab$dist)
-BR.R2 <- round(summary(BR.fit)$r.squared, 2)
-BR.int <- BR.fit$coefficients[1]
-BR.slp <- BR.fit$coefficients[2]
-clip(0, 375, 0, 4.1)
-abline(a = BR.int, b = BR.slp, col = "black", lwd = 2.5, lty = 6)
-text(40, 3.75, labels = bquote(italic(R)^2 == .(BR.R2)), cex = 1.5)
-
-# Bacterial Growth Efficiency
-plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), 
-     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-
-axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, 
-     labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
-axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-    labels = c("0.0", "0.3", "0.6"), at = c(0, 0.3, 0.6))
-axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))
-axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 0.3, 0.6))
-axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-     at = c(0, 100, 200, 300, 400)) 
-axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-    at = c(0, 0.3, 0.6))
-axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-     at = c(0, 100, 200, 300, 400))     
-axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-   at = c(0, 0.3, 0.6))
-
-box(lwd = 2)
-
-mtext("BGE", side = 2, line = 4, cex = 1.25)
-mtext("Distance (m)", side = 1, line = 4, cex = 1.25)
-
-# Simple linear regression for BGE
-BGE.fit <- lm(metab$BGE ~ metab$dist)
-BGE.R2 <- round(summary(BGE.fit)$r.squared, 2)
-BGE.int <- BGE.fit$coefficients[1]
-BGE.slp <- BGE.fit$coefficients[2]
-clip(0, 375, 0, 0.58)
-abline(a = BGE.int, b = BGE.slp, col = "black", lwd = 2.5, lty = 6)
-text(40, 0.535, labels = bquote(italic(R)^2 == .(BGE.R2)), cex = 1.5)
-
-dev.off() # this writes plot to folder
-graphics.off() # shuts down open devices
-par(opar)
-```
-
-```{r fig.width=4, fig.height=5,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}
-img <- readPNG("../figures/Figure1.png")
-grid.raster(img)
-```
 
 # Crump Model: Mass Effects vs. Species Sorting
 Model Description: 
@@ -222,15 +85,15 @@ goods.c <- goods(OTUs)
 lows <- which(coverage < 10000)
 OTUs <- OTUs[-which(coverage < 10000), ]
 design <- design[-which(coverage < 10000), ]
+# Remove OTUs with less than two occurences across all sites
+OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
+
 
 # Make Relative Abundence Matrices
-OTUsREL <- OTUs
-for(i in 1:dim(OTUs)[1]){
-  OTUsREL[i,]<- OTUs[i,]/sum(OTUs[i,])
-}
+OTUsREL <- decostand(OTUs, method = "total")
 
 # Log Transform Relative Abundances
-OTUsREL.log <- decostand(OTUs, method="log")
+OTUsREL.log <- decostand(OTUs, method = "log")
 ```
 
 ## Calculate Alpha Diversity
@@ -247,21 +110,7 @@ SimpE <- function(x = ""){
   return(E)
 }
 simpsE <- round(apply(OTUs, 1, SimpE), 3)
-
-# Shannon's Diversity
-H <- function(x = ""){
-  x <- x[x>0]
-  H = 0
-  for (n_i in x){
-    p = n_i / sum(x)
-    H = H - p*log(p) 
-  }
-  return(H)
-}
-
-shan <- round(apply(OTUs, 1, H), 2)
-shan2 <- diversity(OTUs, index = "shannon")
-
+shan <- diversity(OTUs, index = "shannon")
 alpha.div <- cbind(design, S.obs, simpsE, shan)
 ```
 
@@ -993,4 +842,205 @@ text(x = 375, y = 8.02, "DAM", font = 2)
 
 dev.off() # this writes plot to folder
 graphics.off() # shuts down open devices
+```
+
+
+
+```{r}
+soilOTUs <- OTUsREL[c(1:3),]
+waterOTUs <- OTUsREL[which(design$molecule == "RNA" & design$type == "water"),]
+max.soil <- apply(soilOTUs, MARGIN = 2, FUN = mean)
+max.water <- apply(waterOTUs, MARGIN = 2, FUN = mean)
+plot(max.soil, max.water, log = "xy", asp = 1, las = 1,
+     ylab = "Max water active relative abundance", xlab = "Max soil total relative abundance")
+abline(h = 1e-3, v = 1e-3, lty = 2)
+
+OTU.tax[which(max.soil > 1e-3 & max.water > 1e-3),]
+OTU.tax[which(max.soil <= 1e-3 & max.water > 1e-3),]
+OTU.tax[which(max.soil == 0 & max.water > 1e-3),]
+
+```
+
+
+
+## Fig 1: Microbial metabolism along reservoir gradient
+
+Read in data 
+```{r results='hide'}
+metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
+colnames(metab) <- c("dist", "BP", "BR")
+BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
+metab <- cbind(metab, BGE)
+ggplot(metab, aes(x = dist, y = BP)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black")
+ggplot(metab, aes(x = dist, y = BR)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x, color = "black")
+ggplot(metab, aes(x = dist, y = BGE)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black")
+```
+
+# Figure 1: Microbial Processes Across the Gradient
+```{r results='hide'}
+png(filename="../figures/Figure1.png",
+    width = 1200, height =1200, res = 96*2)
+par(mfrow = c(1,1), mar = c(0, 5, 0, 1) + 0.5, oma = c(6, 2, 0, 0) + 0.5)
+bar.layout <- layout(rbind(1, 2, 3), height = c(3, 3, 3)) 
+#layout.show(bar.layout)
+
+# Baterial Producivity (BP)
+plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), 
+     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
+     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
+     at = c(0, 100, 200, 300, 400))
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("0.0", "1.0", "2.0"), at = c(0, 1.0, 2.0))
+axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 1.0, 2.0))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 1.0, 2.0))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 1.0, 2.0))
+
+box(lwd = 2)
+
+mtext(expression(paste('BP (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
+
+# Quadratic regression for BP
+dist <- metab$dist
+dist2 <- metab$dist^2
+BP.fit <- lm(metab$BP ~ dist + dist2)
+BP.R2 <- round(summary(BP.fit)$r.squared, 2)
+dist.vals <- seq(0, 375, 25)
+BP.pred <- predict(BP.fit,list(dist = dist.vals, dist2 = dist.vals^2))
+lines(dist.vals, BP.pred, col = "black", lwd = 2.5, lty = 6)
+text(40, 1.8, labels = bquote(italic(R)^2 == .(BP.R2)), cex = 1.5)
+
+# Bacterial Respiration (BR)
+plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0, 4), 
+     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
+     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
+     at = c(0, 100, 200, 300, 400))
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("0.0", "2.0", "4.0"), at = c(0, 2, 4))
+axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 2, 4))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 2, 4))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 2, 4))
+
+box(lwd = 2)
+
+mtext(expression(paste('BR (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
+
+# Simple linear regression for BR
+BR.fit <- lm(metab$BR ~ metab$dist)
+BR.R2 <- round(summary(BR.fit)$r.squared, 2)
+BR.int <- BR.fit$coefficients[1]
+BR.slp <- BR.fit$coefficients[2]
+clip(0, 375, 0, 4.1)
+abline(a = BR.int, b = BR.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, 3.75, labels = bquote(italic(R)^2 == .(BR.R2)), cex = 1.5)
+
+# Bacterial Growth Efficiency
+plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), 
+     xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
+     las = 1, lwd = 2, yaxt = "n", xaxt = "n")
+
+axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, 
+     labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
+axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
+    labels = c("0.0", "0.3", "0.6"), at = c(0, 0.3, 0.6))
+axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))
+axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 0.3, 0.6))
+axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+     at = c(0, 100, 200, 300, 400)) 
+axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+    at = c(0, 0.3, 0.6))
+axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
+     at = c(0, 100, 200, 300, 400))     
+axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
+   at = c(0, 0.3, 0.6))
+
+box(lwd = 2)
+
+mtext("BGE", side = 2, line = 4, cex = 1.25)
+mtext("Distance (m)", side = 1, line = 4, cex = 1.25)
+
+# Simple linear regression for BGE
+BGE.fit <- lm(metab$BGE ~ metab$dist)
+BGE.R2 <- round(summary(BGE.fit)$r.squared, 2)
+BGE.int <- BGE.fit$coefficients[1]
+BGE.slp <- BGE.fit$coefficients[2]
+clip(0, 375, 0, 0.58)
+abline(a = BGE.int, b = BGE.slp, col = "black", lwd = 2.5, lty = 6)
+text(40, 0.535, labels = bquote(italic(R)^2 == .(BGE.R2)), cex = 1.5)
+
+dev.off() # this writes plot to folder
+graphics.off() # shuts down open devices
+par(opar)
+```
+
+```{r fig.width=4, fig.height=5,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}
+img <- readPNG("../figures/Figure1.png")
+grid.raster(img)
+```
+
+
+
+```{r}
+library(AEM)
+
+# pull out the in-lake samples
+in.lake.dna.samples <- which(design$type == "water" & design$molecule == "DNA" & design$distance < 300)
+env <- env.dat[which(env.dat$sample.ID %in% design$station[in.lake.dna.samples]),c("temp", "pH", "DO")]
+env <- scale(env)
+# construct asymetric eigenvector maps along transect
+n <- nrow(env)
+aem.out <- aem.time(n, moran = T, plot.moran = F)
+aems <- aem.out$aem[,which(aem.out$Moran$p.value < 0.05)]
+
+prcomp(env, scale. = T)
+round(cor(cbind(aems, env)),2)
+lake.tot <- OTUs[in.lake.dna.samples,]
+vp <- varpart(lake.tot, aems, env, transfo = "hellinger")
+vp
+plot(vp)
+
+# rna
+in.lake.rna.samples <- which(design$type == "water" & design$molecule == "RNA" & design$distance < 300)
+env <- env.dat[which(env.dat$sample.ID %in% design$station[in.lake.dna.samples]),c("temp", "pH", "DO")]
+env <- scale(env)
+# construct asymetric eigenvector maps along transect
+n <- nrow(env)
+aem.out <- aem.time(n, moran = T, plot.moran = F)
+aems <- aem.out$aem[,which(aem.out$Moran$p.value < 0.05)]
+
+prcomp(env, scale. = T)
+round(cor(cbind(aems, env)),2)
+lake.act <- OTUs[in.lake.rna.samples,]
+vp <- varpart(lake.act, aems, env, transfo = "hellinger")
+vp
+plot(vp)
 ```

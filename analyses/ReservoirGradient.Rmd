@@ -16,7 +16,7 @@ Effects of metacommunity processes on microbial assembly at the terrestrial-aqua
 ```{r results='hide', message=FALSE}
 rm(list=ls())
 getwd()
-# setwd("~/GitHub/ReservoirGradient/analyses")
+setwd("./analyses")
 opar <- par(no.readonly = TRUE)  # Saves plot defaults
 
 # Import Required Packages
@@ -34,6 +34,8 @@ require("akima")
 require("gridExtra")
 require("vegan")
 # require("xtable")
+
+theme_set(theme_minimal())
 ```
 
 
@@ -89,11 +91,11 @@ design <- design[-which(coverage < 10000), ]
 OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 
 
-# Make Relative Abundence Matrices
-OTUsREL <- decostand(OTUs, method = "total")
+# Make Relative Abundance Matrices
+OTUsREL <- decostand(OTUs, method = "hellinger")
 
 # Log Transform Relative Abundances
-OTUsREL.log <- decostand(OTUs, method = "log")
+# OTUsREL.log <- decostand(OTUs, method = "log")
 ```
 
 ## Calculate Alpha Diversity
@@ -111,7 +113,8 @@ SimpE <- function(x = ""){
 }
 simpsE <- round(apply(OTUs, 1, SimpE), 3)
 shan <- diversity(OTUs, index = "shannon")
-alpha.div <- cbind(design, S.obs, simpsE, shan)
+exp.shan <- exp(shan)
+alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
 ```
 
 ## Import Phototrophs
@@ -160,9 +163,9 @@ HtoBoth <- N.hetero / (N.cyano + N.phyto)
 
 
 # Ratio Across Gradient Plot
-#  plot(HtoC ~ design.dna$distance, col= "black", pch = 22, las = 1,
-#      xlim = c(400, 0), ylim = c(0, 1000), cex = 1.5, 
-#       xlab="", ylab="")
+# plot(HtoC ~ design.dna$distance, col= "black", pch = 22, las = 1,
+#    xlim = c(400, 0), ylim = c(0, 1000), cex = 1.5,
+#     xlab="", ylab="")
 
 ```
 
@@ -171,6 +174,12 @@ HtoBoth <- N.hetero / (N.cyano + N.phyto)
 # Seperate data based on lake and soil samples
 lake <- alpha.div[alpha.div$type == "water",]
 soil <- alpha.div[alpha.div$type == "soil", ]
+
+lake %>% 
+  ggplot(aes(x = distance, y = S.obs, color = molecule)) + 
+  geom_point() +
+  geom_smooth(method = 'gam')
+
 
 # Calculate Linear Model
 model.rich <- lm(lake$S.obs ~ lake$distance * lake$molecule)
@@ -197,11 +206,17 @@ RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)
 ```{r}
 # Similarity to Soil Sample
-UL.bray      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
+UL.bray      <- sqrt(2) - as.matrix(vegdist(OTUsREL, method="euclidean"))
 UL.bray.lake <- UL.bray[-c(1:3), 1:3] 
 bray.mean    <- round(apply(UL.bray.lake, 1, mean), 3)
 bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
 UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
+
+UL.sim %>% 
+  ggplot(aes(x = distance, y = bray.mean, color = molecule)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  labs(y = "mean hellinger distance")
 
 # Calculate Linear Model
 model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
@@ -225,11 +240,24 @@ RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
 ## Similarity To Lake Habitat Across Gradient
 ```{r}
 # Similarity to Lake Sample 1
-UL.bray2      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
+UL.bray2      <- sqrt(2) - as.matrix(vegdist(OTUsREL, method="euclidean"))
 UL.bray.lake2 <- UL.bray[-c(1:3), 4:7]
 UL.sim2       <- cbind(design[-c(1:3), ], 
                        "DNA" = apply(UL.bray.lake2[,c(1,3)], 1, mean), 
                        "RNA" = apply(UL.bray.lake2[,c(2,4)], 1, mean))
+
+UL.sim2 %>% 
+  ggplot(aes(x = distance, y = DNA, color = molecule)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  labs(y = "mean hellinger distance of DNA")
+
+UL.sim2 %>% 
+  ggplot(aes(x = distance, y = RNA, color = molecule)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  labs(y = "mean hellinger distance of RNA")
+
 
 # Calculate Linear Model
 model.lake1 <- lm(UL.sim2$DNA ~ UL.sim2$distance * UL.sim2$molecule)

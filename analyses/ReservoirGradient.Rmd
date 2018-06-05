@@ -273,13 +273,13 @@ data.frame(scores(ul.pcoa)) %>%
   arrange(desc(distance)) %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = Dim1, y = Dim2)) +
-  geom_point(alpha = 0.25, aes(color = molecule, size = desc(distance)), show.legend = F) + 
+  geom_point(alpha = 0.5, aes(color = molecule)) + 
   geom_path(alpha = 0.75, arrow = arrow(angle = 20,
                           length = unit(0.35, "cm"),
                           type = "closed"), aes(color = molecule)) +
   scale_color_manual("Community Subset", values = my.cols) +
   geom_segment(data = pc_dists,
-               aes(x = DNA_dim1, y = DNA_dim2, 
+               aes(x = DNA_dim1, y = DNA_dim2,
                    xend = RNA_dim1, yend = RNA_dim2),
                alpha = 0.05) +
   coord_fixed() +
@@ -287,6 +287,25 @@ data.frame(scores(ul.pcoa)) %>%
        y = paste0("PCoA 2 (", explainvars[2],"%)")) +
   ggsave("../figures/02_active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8)
 
+# animation
+traj.animate <- data.frame(scores(ul.pcoa)) %>% 
+  rownames_to_column("name") %>% 
+  left_join(rownames_to_column(design, "name")) %>% 
+  arrange(desc(distance)) %>% filter(type == "water") %>% 
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  mutate(transect = desc(distance)) %>% 
+  ggplot(aes(x = Dim1, y = Dim2, frame = transect, cumulative = TRUE)) +
+  geom_point(alpha = 0.75, size = 3, aes(color = molecule)) + 
+  geom_path(alpha = 0.75, size = 1, arrow = arrow(angle = 20,
+                          length = unit(0.35, "cm"),
+                          type = "closed"), aes(color = molecule)) +
+  scale_color_manual(values = my.cols) +
+  theme(legend.title = element_blank()) +
+  coord_fixed() +
+  labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
+       y = paste0("PCoA 2 (", explainvars[2],"%)"))
+
+gganimate(traj.animate, filename = "../figures/02_trajectory-animation.mp4", ani.width = 800, ani.height = 800)
 ```
 
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)

@@ -246,7 +246,7 @@ lake %>%
   annotate(geom = "text", x = 50, y = 2000, size = 5,
            label = paste0("R^2== ",D1.R2), parse = T) +
   scale_x_reverse(limits = c(400,0)) + 
-  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
+  labs(x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)")),
        y = "Observed Richness") +
   scale_color_manual("Community Subset", values = my.cols) +
   scale_fill_manual("Community Subset", values = my.cols) +
@@ -324,7 +324,7 @@ UL.sim %>%
   geom_point() + 
   geom_smooth(method = "lm") + 
   labs(y = "Mean Community Similarity to Soils", 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) + 
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)"))) + 
   scale_color_manual("Community Subset", values = my.cols) + 
   scale_fill_manual("Community Subset", values = my.cols) +
   scale_x_reverse(limits = c(400,0)) + 
@@ -349,7 +349,7 @@ UL.sim2 %>%
   geom_point() + 
   geom_smooth(method = "lm") + 
   labs(y = "Similarity to total lake community (DNA)", 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse() +
   scale_color_manual("Community Subset", values = my.cols) +
   scale_fill_manual("Community Subset", values = my.cols)
@@ -360,7 +360,7 @@ UL.sim2 %>%
   geom_point() + 
   geom_smooth(method = "lm") + 
   labs(y = "Similarity to active lake community (RNA)", 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse() +
   scale_color_manual("Community Subset", values = my.cols) +
   scale_fill_manual("Community Subset", values = my.cols)
@@ -568,7 +568,7 @@ data_frame(transient_rich = terr.rich, distance = design.dna$distance) %>%
   scale_x_reverse(limits = c(400,0)) + 
   scale_y_log10() +
   annotation_logticks(sides = "l") +
-  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
+  labs(x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)")),
        y = "Transient Richness") +
   annotate("text", x = 50, y = 1000, size = 5, label = paste0("R^2== ",T1.R2), parse = T) +
   ggsave("../figures/04_transient-rich.pdf", bg = "white", height = 6, width = 6)
@@ -1157,21 +1157,21 @@ BP.plot <- ggplot(metab, aes(x = dist, y = BP)) +
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
   annotate(geom = "text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BP.R2), parse = T) +
   labs(y = expression(paste('BP (', mu ,'M C h'^-1* ')')), 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)"))) +
   scale_x_reverse()
 BR.plot <- ggplot(metab, aes(x = dist, y = BR)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x, color = "black") + 
   annotate("text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BR.R2), parse = T ) +
   labs(y = expression(paste('BR (', mu ,'M C h'^-1* ')')), 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)"))) +
   scale_x_reverse()
 BGE.plot <- ggplot(metab, aes(x = dist, y = BGE)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
   annotate("text", x = 50, y = .6, size = 5, label = paste0("R^2== ",BGE.R2), parse = T ) +
   labs(y = "BGE", 
-       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect (m)"))) +
+       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam (m)"))) +
   scale_x_reverse()
 plot_grid(BP.plot + theme(axis.title.x = element_blank()), 
           BR.plot + theme(axis.title.x = element_blank()), 

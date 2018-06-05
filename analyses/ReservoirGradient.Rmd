@@ -23,19 +23,23 @@ opar <- par(no.readonly = TRUE)  # Saves plot defaults
 require("png")
 require("grid")
 require("reshape")
-require("tidyverse")      
+require("tidyverse")   
+# require("akima")
 # require("maps")
 # require("rgdal")
 # require("raster")
 # require("OpenMx")
 # require("ggmap")
-require("akima")
 # require("raster") 
-require("gridExtra")
+# require("gridExtra")
 require("vegan")
 # require("xtable")
+require("viridis")
+require("cowplot")
+require("adespatial")
 
-theme_set(theme_minimal())
+my.cols <- viridis(2, begin = .3, end = 0.8)
+theme_set(theme_cowplot())
 ```
 
 
@@ -89,10 +93,10 @@ OTUs <- OTUs[-which(coverage < 10000), ]
 design <- design[-which(coverage < 10000), ]
 # Remove OTUs with less than two occurences across all sites
 OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
-
+# OTUs <- rrarefy(OTUs, min(coverage))
 
 # Make Relative Abundance Matrices
-OTUsREL <- decostand(OTUs, method = "hellinger")
+OTUsREL <- decostand(OTUs, method = "log")
 
 # Log Transform Relative Abundances
 # OTUsREL.log <- decostand(OTUs, method = "log")
@@ -161,6 +165,30 @@ HtoC <- N.hetero / N.cyano
 HtoP <- N.hetero / N.phyto
 HtoBoth <- N.hetero / (N.cyano + N.phyto)
 
+data_frame(S.cyano, S.phyto, S.hetero, 
+           metric = "richness", 
+           location = design.dna$distance) %>% 
+  gather(group, richness, -metric, -location) %>% 
+  filter(!is.na(location)) %>% 
+  ggplot(aes(x = location, y = richness, color = group)) +
+  geom_jitter(alpha = 0.5) +
+  geom_smooth() +
+  scale_y_log10() +
+  scale_x_reverse()
+
+data_frame(N.cyano, N.phyto, N.hetero, 
+           metric = "richness", 
+           location = design.dna$distance) %>% 
+  gather(group, richness, -metric, -location) %>% 
+  filter(!is.na(location)) %>% 
+  ggplot(aes(x = location, y = richness, color = group)) +
+  geom_jitter(alpha = 0.5) +
+  geom_smooth() +
+  scale_y_log10() +
+  scale_x_reverse()
+
+
+plot(N.phyto ~ design.dna$distance)
 
 # Ratio Across Gradient Plot
 # plot(HtoC ~ design.dna$distance, col= "black", pch = 22, las = 1,
@@ -174,11 +202,17 @@ HtoBoth <- N.hetero / (N.cyano + N.phyto)
 # Seperate data based on lake and soil samples
 lake <- alpha.div[alpha.div$type == "water",]
 soil <- alpha.div[alpha.div$type == "soil", ]
-
 lake %>% 
-  ggplot(aes(x = distance, y = S.obs, color = molecule)) + 
-  geom_point() +
-  geom_smooth(method = 'gam')
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = S.obs, color = molecule, fill = molecule)) + 
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = 'gam') +
+  scale_x_reverse() +
+  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
+       y = "Observed Richness") +
+  scale_color_manual("Community Subset", values = my.cols) +
+  scale_fill_manual("Community Subset", values = my.cols) +
+  ggsave("../figures/01_Richness.pdf", bg = "white", width = 8, height = 6)
 
 
 # Calculate Linear Model
@@ -203,20 +237,50 @@ RNA.int.3a <- DNA.int.3a + fit.Fig.3a$coefficients[3]
 RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
 ```
 
+## Track structure across space
+```{r}
+ul.pcoa <- cmdscale(vegdist(OTUsREL, method="bray"), 2, eig = T, add = T)
+explainvars <- round(eigenvals(ul.pcoa)[c(1,2)]/sum(eigenvals(ul.pcoa)),3) *100
+water.pcvals <- data.frame(scores(ul.pcoa)) %>% 
+  rownames_to_column("name") %>% 
+  left_join(rownames_to_column(design, "name")) %>% 
+  arrange(desc(distance)) %>% filter(type == "water")
+pc_dists <- data_frame(
+  DNA_dim1 = subset(water.pcvals, molecule == "DNA")$Dim1,
+  DNA_dim2 = subset(water.pcvals, molecule == "DNA")$Dim2,
+  RNA_dim1 = subset(water.pcvals, molecule == "RNA")$Dim1,
+  RNA_dim2 = subset(water.pcvals, molecule == "RNA")$Dim2)
+data.frame(scores(ul.pcoa)) %>% 
+  rownames_to_column("name") %>% 
+  left_join(rownames_to_column(design, "name")) %>% 
+  arrange(desc(distance)) %>% filter(type == "water") %>% 
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = Dim1, y = Dim2)) +
+  geom_point(alpha = 0.25, aes(color = molecule, size = desc(distance)), show.legend = F) + 
+  geom_path(alpha = 0.75, arrow = arrow(angle = 20,
+                          length = unit(0.35, "cm"),
+                          type = "closed"), aes(color = molecule)) +
+  scale_color_manual("Community Subset", values = my.cols) +
+  geom_segment(data = pc_dists,
+               aes(x = DNA_dim1, y = DNA_dim2, 
+                   xend = RNA_dim1, yend = RNA_dim2),
+               alpha = 0.05) +
+  coord_fixed() +
+  labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
+       y = paste0("PCoA 2 (", explainvars[2],"%)")) +
+  ggsave("../figures/02_active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8)
+
+```
+
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)
 ```{r}
 # Similarity to Soil Sample
-UL.bray      <- sqrt(2) - as.matrix(vegdist(OTUsREL, method="euclidean"))
+UL.bray      <- 1-as.matrix(vegdist(OTUsREL, method="bray"))
 UL.bray.lake <- UL.bray[-c(1:3), 1:3] 
 bray.mean    <- round(apply(UL.bray.lake, 1, mean), 3)
 bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
 UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
 
-UL.sim %>% 
-  ggplot(aes(x = distance, y = bray.mean, color = molecule)) +
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  labs(y = "mean hellinger distance")
 
 # Calculate Linear Model
 model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
@@ -235,12 +299,28 @@ DNA.int.3b <- fit.Fig.3b$coefficients[1]
 DNA.slp.3b <- fit.Fig.3b$coefficients[2]
 RNA.int.3b <- DNA.int.3b + fit.Fig.3b$coefficients[3]
 RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
+
+
+UL.sim %>% 
+  mutate(molecule = ifelse(UL.sim$molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  labs(y = "Mean Community Similarity to Soils", 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) + 
+  scale_color_manual("Community Subset", values = my.cols) + 
+  scale_fill_manual("Community Subset", values = my.cols) +
+  scale_x_reverse() +
+  annotate(geom = "text", x = 100, y = 0.2, size = 6,
+           label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
+  ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 8)
+
 ```
 
 ## Similarity To Lake Habitat Across Gradient
 ```{r}
-# Similarity to Lake Sample 1
-UL.bray2      <- sqrt(2) - as.matrix(vegdist(OTUsREL, method="euclidean"))
+# Similarity to Lake Samples 1 and 2
+UL.bray2      <- 1 - as.matrix(vegdist(OTUsREL, method="bray"))
 UL.bray.lake2 <- UL.bray[-c(1:3), 4:7]
 UL.sim2       <- cbind(design[-c(1:3), ], 
                        "DNA" = apply(UL.bray.lake2[,c(1,3)], 1, mean), 
@@ -250,13 +330,19 @@ UL.sim2 %>%
   ggplot(aes(x = distance, y = DNA, color = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
-  labs(y = "mean hellinger distance of DNA")
+  labs(y = "Similarity to total lake community (DNA)", 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+  scale_x_reverse() +
+  scale_color_manual("Community Subset", values = my.cols)
 
 UL.sim2 %>% 
   ggplot(aes(x = distance, y = RNA, color = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
-  labs(y = "mean hellinger distance of RNA")
+  labs(y = "Similarity to active lake community (RNA)", 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+  scale_x_reverse() +
+  scale_color_manual("Community Subset", values = my.cols)
 
 
 # Calculate Linear Model
@@ -576,13 +662,14 @@ fit.l.mm <- nls(l.rel.abund ~ mm((400-distance), max, halfsat), data = lake[1:15
 # Figure 4: Plot Core Community
 ```{r}
 png(filename="../figures/Figure4.png",
-    width = 1200, height =1200, res = 96*2)
-
+    width = 1000, height = 1000, res = 96*2)
+par(mar = c(5,7,4,1))
 plot(in.lake.core.soil.REL ~ design.dna$distance, 
      ylim = c(0, 1), xlim = c(400, -15), pch = 22, bg = "black", 
      ylab = "", xlab = "", xaxt = "n", yaxt = "n", cex = 2, cex.lab = 2)
 points(in.lake.core.water.REL ~ design.dna$distance, cex = 2, pch = 22)
-
+mtext("Distance (m)", side = 1, line = 3, cex = 1.5)
+mtext("Relative abundance of \ncore microbiome", side = 2, line = 3, cex = 1.5)
 axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
 axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
 axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
@@ -899,15 +986,7 @@ metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
 colnames(metab) <- c("dist", "BP", "BR")
 BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
 metab <- cbind(metab, BGE)
-ggplot(metab, aes(x = dist, y = BP)) + 
-  geom_point() + 
-  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black")
-ggplot(metab, aes(x = dist, y = BR)) + 
-  geom_point() + 
-  geom_smooth(method = "lm", formula = y ~ x, color = "black")
-ggplot(metab, aes(x = dist, y = BGE)) + 
-  geom_point() + 
-  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black")
+
 ```
 
 # Figure 1: Microbial Processes Across the Gradient
@@ -1035,7 +1114,71 @@ img <- readPNG("../figures/Figure1.png")
 grid.raster(img)
 ```
 
+```{r}
+BP.R2
+BR.R2
+BGE.R2
+BP.plot <- ggplot(metab, aes(x = dist, y = BP)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
+  annotate("text", x = 50, y = 1.5, size = 5, label = "paste(italic(R)^2, \" = 0.39\")", parse = T ) + 
+  labs(y = expression(paste('BP (', mu ,'M C h'^-1* ')')), 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+  scale_x_reverse()
+BR.plot <- ggplot(metab, aes(x = dist, y = BR)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x, color = "black") + 
+  annotate("text", x = 50, y = 1.5, size = 5, label = "paste(italic(R)^2, \" = 0.75\")", parse = T ) +
+  labs(y = expression(paste('BR (', mu ,'M C h'^-1* ')')), 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
+  scale_x_reverse()
+BGE.plot <- ggplot(metab, aes(x = dist, y = BGE)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
+  annotate("text", x = 50, y = .6, size = 5, label = "paste(italic(R)^2, \" = 0.23\")", parse = T ) +
+  labs(y = "BGE", 
+       x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect (m)"))) +
+  scale_x_reverse()
+plot_grid(BP.plot + theme(axis.title.x = element_blank()), 
+          BR.plot + theme(axis.title.x = element_blank()), 
+          BGE.plot, align = "hv", ncol = 1) + 
+  ggsave("../figures/04_ecosystem-functions.pdf", bg = "white", width = 6, height = 10)
 
+```
+
+
+```{r}
+transient.metabolism <- data.frame(transients = log10(terr.REL), dist = design.dna$distance) %>% 
+  left_join(metab) 
+
+bp.mod.quad <- lm(BP ~ transients + I(transients^2), data = transient.metabolism)
+bp.mod.lin <- lm(BP ~ transients, data = transient.metabolism)
+bp.mod.int <- lm(BP ~ 1, data = transient.metabolism)
+anova(bp.mod.int, bp.mod.lin, bp.mod.quad)
+AIC(bp.mod.quad, bp.mod.lin, bp.mod.int)
+
+br.mod.quad <- lm(BR ~ transients + I(transients^2), data = transient.metabolism)
+br.mod.lin <- lm(BR ~ transients, data = transient.metabolism)
+br.mod.int <- lm(BR ~ 1, data = transient.metabolism)
+anova(br.mod.int, br.mod.lin, br.mod.quad)
+AIC(br.mod.int, br.mod.lin, br.mod.quad)
+
+bge.mod.quad <- lm(BGE ~ transients + I(transients^2), data = transient.metabolism)
+bge.mod.lin <- lm(BGE ~ transients, data = transient.metabolism)
+bge.mod.int <- lm(BGE ~ 1, data = transient.metabolism)
+anova(bge.mod.int, bge.mod.lin, bge.mod.quad)
+AIC(bge.mod.int, bge.mod.lin, bge.mod.quad)
+
+data.frame(transients = terr.REL, dist = design.dna$distance) %>% 
+  left_join(metab) %>% gather(metab, value, -transients, -dist) %>% 
+  ggplot(aes(x = transients, y = value, color = metab, fill = metab)) +
+  geom_point() + 
+  geom_smooth(method = 'lm', formula = y ~ x + I(x^2)) +
+  scale_x_log10() +
+  scale_y_log10() +
+  annotation_logticks(sides = "bl")
+
+```
 
 ```{r}
 library(AEM)

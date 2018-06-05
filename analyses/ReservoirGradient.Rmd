@@ -33,13 +33,24 @@ require("tidyverse")
 # require("raster") 
 # require("gridExtra")
 require("vegan")
-# require("xtable")
+require("xtable")
 require("viridis")
 require("cowplot")
 require("adespatial")
 
 my.cols <- viridis(2, begin = .3, end = 0.8)
-theme_set(theme_cowplot())
+
+theme_set(theme_cowplot() + 
+  theme(axis.title = element_text(size = 18),
+        axis.title.x = element_text(margin = margin(t = 15, b = 15)),
+        axis.title.y = element_text(margin = margin(l = 15, r = 15)),
+        axis.text = element_text(size = 14),
+        axis.text.x = element_text(margin = margin(t = 5)),
+        axis.text.y = element_text(margin = margin(r = 5)),
+        legend.title = element_text(size = 18),
+        legend.text = element_text(size = 16),
+        axis.line = element_line(size = 8)
+        ))
 ```
 
 
@@ -177,24 +188,26 @@ data_frame(S.cyano, S.phyto, S.hetero,
   scale_x_reverse()
 
 data_frame(N.cyano, N.phyto, N.hetero, 
-           metric = "richness", 
+           metric = "abundance", 
            location = design.dna$distance) %>% 
-  gather(group, richness, -metric, -location) %>% 
+  gather(group, abundance, -metric, -location) %>% 
   filter(!is.na(location)) %>% 
-  ggplot(aes(x = location, y = richness, color = group)) +
+  ggplot(aes(x = location, y = abundance, color = group)) +
   geom_jitter(alpha = 0.5) +
   geom_smooth() +
   scale_y_log10() +
   scale_x_reverse()
 
-
-plot(N.phyto ~ design.dna$distance)
-
-# Ratio Across Gradient Plot
-# plot(HtoC ~ design.dna$distance, col= "black", pch = 22, las = 1,
-#    xlim = c(400, 0), ylim = c(0, 1000), cex = 1.5,
-#     xlab="", ylab="")
-
+data_frame(HtoC, HtoP, HtoBoth, 
+           metric = "ratio", 
+           location = design.dna$distance) %>% 
+  gather(group, ratio, -metric, -location) %>% 
+  filter(!is.na(location)) %>% 
+  ggplot(aes(x = location, y = ratio, color = group)) +
+  geom_jitter(alpha = 0.5) +
+  geom_smooth() +
+  scale_y_log10() +
+  scale_x_reverse()
 ```
 
 ## Alpha Diversity Across Gradient
@@ -202,17 +215,6 @@ plot(N.phyto ~ design.dna$distance)
 # Seperate data based on lake and soil samples
 lake <- alpha.div[alpha.div$type == "water",]
 soil <- alpha.div[alpha.div$type == "soil", ]
-lake %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = S.obs, color = molecule, fill = molecule)) + 
-  geom_point(size = 2, alpha = 0.8) +
-  geom_smooth(method = 'gam') +
-  scale_x_reverse() +
-  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
-       y = "Observed Richness") +
-  scale_color_manual("Community Subset", values = my.cols) +
-  scale_fill_manual("Community Subset", values = my.cols) +
-  ggsave("../figures/01_Richness.pdf", bg = "white", width = 8, height = 6)
 
 
 # Calculate Linear Model
@@ -235,6 +237,21 @@ DNA.int.3a <- fit.Fig.3a$coefficients[1]
 DNA.slp.3a <- fit.Fig.3a$coefficients[2]
 RNA.int.3a <- DNA.int.3a + fit.Fig.3a$coefficients[3]
 RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
+
+lake %>% 
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = S.obs, color = molecule, fill = molecule)) + 
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = 'lm') +
+  annotate(geom = "text", x = 50, y = 2000, size = 5,
+           label = paste0("R^2== ",D1.R2), parse = T) +
+  scale_x_reverse(limits = c(400,0)) + 
+  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
+       y = "Observed Richness") +
+  scale_color_manual("Community Subset", values = my.cols) +
+  scale_fill_manual("Community Subset", values = my.cols) +
+  ggsave("../figures/01_Richness.pdf", bg = "white", width = 8, height = 6)
+
 ```
 
 ## Track structure across space
@@ -310,8 +327,8 @@ UL.sim %>%
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) + 
   scale_color_manual("Community Subset", values = my.cols) + 
   scale_fill_manual("Community Subset", values = my.cols) +
-  scale_x_reverse() +
-  annotate(geom = "text", x = 100, y = 0.2, size = 6,
+  scale_x_reverse(limits = c(400,0)) + 
+  annotate(geom = "text", x = 50, y = 0.2, size = 5,
            label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
   ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 8)
 
@@ -327,22 +344,26 @@ UL.sim2       <- cbind(design[-c(1:3), ],
                        "RNA" = apply(UL.bray.lake2[,c(2,4)], 1, mean))
 
 UL.sim2 %>% 
-  ggplot(aes(x = distance, y = DNA, color = molecule)) +
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = DNA, color = molecule, fill = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
   labs(y = "Similarity to total lake community (DNA)", 
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse() +
-  scale_color_manual("Community Subset", values = my.cols)
+  scale_color_manual("Community Subset", values = my.cols) +
+  scale_fill_manual("Community Subset", values = my.cols)
 
 UL.sim2 %>% 
-  ggplot(aes(x = distance, y = RNA, color = molecule)) +
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = RNA, color = molecule, fill = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
   labs(y = "Similarity to active lake community (RNA)", 
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse() +
-  scale_color_manual("Community Subset", values = my.cols)
+  scale_color_manual("Community Subset", values = my.cols) +
+  scale_fill_manual("Community Subset", values = my.cols)
 
 
 # Calculate Linear Model
@@ -539,6 +560,19 @@ summary(terr.mod2)
 T2.R2 <- round(summary(terr.mod2)$r.squared, 2)
 T2.int <- terr.mod2$coefficients[1]
 T2.slp <- terr.mod2$coefficients[2]
+
+data_frame(transient_rich = terr.rich, distance = design.dna$distance) %>% 
+  ggplot(aes(x = distance, y = transient_rich)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", color = "black") +
+  scale_x_reverse(limits = c(400,0)) + 
+  scale_y_log10() +
+  annotation_logticks(sides = "l") +
+  labs(x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect")),
+       y = "Transient Richness") +
+  annotate("text", x = 50, y = 1000, size = 5, label = paste0("R^2== ",T1.R2), parse = T) +
+  ggsave("../figures/04_transient-rich.pdf", bg = "white", height = 6, width = 6)
+
 ```
 
 
@@ -1121,29 +1155,28 @@ BGE.R2
 BP.plot <- ggplot(metab, aes(x = dist, y = BP)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
-  annotate("text", x = 50, y = 1.5, size = 5, label = "paste(italic(R)^2, \" = 0.39\")", parse = T ) + 
+  annotate(geom = "text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BP.R2), parse = T) +
   labs(y = expression(paste('BP (', mu ,'M C h'^-1* ')')), 
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse()
 BR.plot <- ggplot(metab, aes(x = dist, y = BR)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x, color = "black") + 
-  annotate("text", x = 50, y = 1.5, size = 5, label = "paste(italic(R)^2, \" = 0.75\")", parse = T ) +
+  annotate("text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BR.R2), parse = T ) +
   labs(y = expression(paste('BR (', mu ,'M C h'^-1* ')')), 
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect"))) +
   scale_x_reverse()
 BGE.plot <- ggplot(metab, aes(x = dist, y = BGE)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
-  annotate("text", x = 50, y = .6, size = 5, label = "paste(italic(R)^2, \" = 0.23\")", parse = T ) +
+  annotate("text", x = 50, y = .6, size = 5, label = paste0("R^2== ",BGE.R2), parse = T ) +
   labs(y = "BGE", 
        x = (expression("Soil" %->% "Reservoir" %->% "Dam Transect (m)"))) +
   scale_x_reverse()
 plot_grid(BP.plot + theme(axis.title.x = element_blank()), 
           BR.plot + theme(axis.title.x = element_blank()), 
           BGE.plot, align = "hv", ncol = 1) + 
-  ggsave("../figures/04_ecosystem-functions.pdf", bg = "white", width = 6, height = 10)
-
+  ggsave("../figures/05_ecosystem-functions.pdf", bg = "white", width = 6, height = 10)
 ```
 
 
@@ -1170,13 +1203,17 @@ anova(bge.mod.int, bge.mod.lin, bge.mod.quad)
 AIC(bge.mod.int, bge.mod.lin, bge.mod.quad)
 
 data.frame(transients = terr.REL, dist = design.dna$distance) %>% 
-  left_join(metab) %>% gather(metab, value, -transients, -dist) %>% 
+  left_join(metab) %>% select(-BGE) %>% gather(metab, value, -transients, -dist) %>% 
   ggplot(aes(x = transients, y = value, color = metab, fill = metab)) +
-  geom_point() + 
-  geom_smooth(method = 'lm', formula = y ~ x + I(x^2)) +
+  geom_point(size = 2) + 
+  geom_smooth(alpha = .25, method = 'lm', formula = y ~ x + I(x^2)) +
   scale_x_log10() +
-  scale_y_log10() +
-  annotation_logticks(sides = "bl")
+  annotation_logticks(sides = "b") +
+  labs(x = "Relative Abundance of Transient Taxa",
+       y = expression(paste('Productivity or Respiration (', mu ,'M C h'^-1* ')'))) +
+  scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  ggsave("../figures/06_transients-function.pdf", bg = "white", width = 8, height = 6)
 
 ```
 

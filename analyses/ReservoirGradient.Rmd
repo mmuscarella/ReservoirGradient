@@ -37,25 +37,30 @@ require("xtable")
 require("viridis")
 require("cowplot")
 require("adespatial")
+require("ggrepel")
+require("gganimate")
 
 my.cols <- viridis(2, begin = .3, end = 0.8)
 
-theme_set(theme_cowplot() + 
+theme_set(theme_classic() + 
   theme(axis.title = element_text(size = 20),
         axis.title.x = element_text(margin = margin(t = 15, b = 15)),
         axis.title.y = element_text(margin = margin(l = 15, r = 15)),
         axis.text = element_text(size = 14),
         axis.text.x = element_text(margin = margin(t = 5)),
         axis.text.y = element_text(margin = margin(r = 5)),
-        axis.line.x = element_line(size = 1),
-        axis.line.y = element_line(size = 1),
+        #axis.line.x = element_line(size = 1),
+        #axis.line.y = element_line(size = 1),
+        axis.line.x = element_blank(),
+        axis.line.y = element_blank(),
         axis.ticks.x = element_line(size = 1),
         axis.ticks.y = element_line(size = 1),
-        axis.ticks.length = unit(10, "points"),
+        axis.ticks.length = unit(.1, "in"),
+        panel.border = element_rect(color = "black", fill = NA, size = 1),
         legend.title = element_blank(),
-        legend.text = element_text(size = 16),
-        axis.line = element_line(size = 8)
+        legend.text = element_text(size = 16)
         ))
+
 ```
 
 
@@ -139,80 +144,80 @@ alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
 
 ## Import Phototrophs
 ```{r}
-# The phototrophs
-cyanos.in <- "../data/UL.cyano.final.shared"
-phytos.in <- "../data/UL.euks.final.shared"
-
-cyanos <- read.otu(shared = cyanos.in, cutoff = "0.03")
-phytos <- read.otu(shared = phytos.in, cutoff = "0.03")
-
-# Remove OTUs with less than two occurences across all sites
-cyanos <- cyanos[, which(colSums(cyanos) >= 2)]
-phytos <- phytos[, which(colSums(phytos) >= 2)]
-
-# Remove sites where we have low coverage
-cyanos <- cyanos[-which(coverage < 10000), ]
-phytos <- phytos[-which(coverage < 10000), ]
-
-# Remove Non Intersecting Sites
-ratio.sites <- intersect(intersect(rownames(cyanos), rownames(phytos)), rownames(OTUs))
-cyanos <- cyanos[ratio.sites, ]
-phytos <- phytos[ratio.sites, ]
-heteros <- OTUs[ratio.sites, ]
-design.int <- design[ratio.sites, ]
-
-# Remove RNA Sites
-DNA.samps <- which(design.int$molecule == "DNA")
-cyanos <- cyanos[DNA.samps, ]
-phytos <- phytos[DNA.samps, ]
-heteros <- OTUs[DNA.samps, ]
-design.dna <- design[DNA.samps, ]
-
-# Observed Richness
-S.cyano <- rowSums((cyanos > 0) * 1)
-S.phyto <- rowSums((phytos > 0) * 1)
-S.hetero <- rowSums((heteros > 0) * 1)
-
-N.cyano <- rowSums(cyanos)
-N.phyto <- rowSums(phytos)
-N.hetero <- rowSums(heteros) - rowSums(cyanos)
-                    
-HtoC <- N.hetero / N.cyano
-HtoP <- N.hetero / N.phyto
-HtoBoth <- N.hetero / (N.cyano + N.phyto)
-
-data_frame(S.cyano, S.phyto, S.hetero, 
-           metric = "richness", 
-           location = design.dna$distance) %>% 
-  gather(group, richness, -metric, -location) %>% 
-  filter(!is.na(location)) %>% 
-  ggplot(aes(x = location, y = richness, color = group)) +
-  geom_jitter(alpha = 0.5) +
-  geom_smooth() +
-  scale_y_log10() +
-  scale_x_reverse()
-
-data_frame(N.cyano, N.phyto, N.hetero, 
-           metric = "abundance", 
-           location = design.dna$distance) %>% 
-  gather(group, abundance, -metric, -location) %>% 
-  filter(!is.na(location)) %>% 
-  ggplot(aes(x = location, y = abundance, color = group)) +
-  geom_jitter(alpha = 0.5) +
-  geom_smooth() +
-  scale_y_log10() +
-  scale_x_reverse()
-
-data_frame(HtoC, HtoP, HtoBoth, 
-           metric = "ratio", 
-           location = design.dna$distance) %>% 
-  gather(group, ratio, -metric, -location) %>% 
-  filter(!is.na(location)) %>% 
-  ggplot(aes(x = location, y = ratio, color = group)) +
-  geom_jitter(alpha = 0.5) +
-  geom_smooth() +
-  scale_y_log10() +
-  scale_x_reverse()
+# # The phototrophs
+# cyanos.in <- "../data/UL.cyano.final.shared"
+# phytos.in <- "../data/UL.euks.final.shared"
+# 
+# cyanos <- read.otu(shared = cyanos.in, cutoff = "0.03")
+# phytos <- read.otu(shared = phytos.in, cutoff = "0.03")
+# 
+# # Remove OTUs with less than two occurences across all sites
+# cyanos <- cyanos[, which(colSums(cyanos) >= 2)]
+# phytos <- phytos[, which(colSums(phytos) >= 2)]
+# 
+# # Remove sites where we have low coverage
+# cyanos <- cyanos[-which(coverage < 10000), ]
+# phytos <- phytos[-which(coverage < 10000), ]
+# 
+# # Remove Non Intersecting Sites
+# ratio.sites <- intersect(intersect(rownames(cyanos), rownames(phytos)), rownames(OTUs))
+# cyanos <- cyanos[ratio.sites, ]
+# phytos <- phytos[ratio.sites, ]
+# heteros <- OTUs[ratio.sites, ]
+# design.int <- design[ratio.sites, ]
+# 
+# # Remove RNA Sites
+# DNA.samps <- which(design.int$molecule == "DNA")
+# cyanos <- cyanos[DNA.samps, ]
+# phytos <- phytos[DNA.samps, ]
+# heteros <- OTUs[DNA.samps, ]
+# design.dna <- design[DNA.samps, ]
+# 
+# # Observed Richness
+# S.cyano <- rowSums((cyanos > 0) * 1)
+# S.phyto <- rowSums((phytos > 0) * 1)
+# S.hetero <- rowSums((heteros > 0) * 1)
+# 
+# N.cyano <- rowSums(cyanos)
+# N.phyto <- rowSums(phytos)
+# N.hetero <- rowSums(heteros) - rowSums(cyanos)
+#                     
+# HtoC <- N.hetero / N.cyano
+# HtoP <- N.hetero / N.phyto
+# HtoBoth <- N.hetero / (N.cyano + N.phyto)
+# 
+# data_frame(S.cyano, S.phyto, S.hetero, 
+#            metric = "richness", 
+#            location = design.dna$distance) %>% 
+#   gather(group, richness, -metric, -location) %>% 
+#   filter(!is.na(location)) %>% 
+#   ggplot(aes(x = location, y = richness, color = group)) +
+#   geom_jitter(alpha = 0.5) +
+#   geom_smooth() +
+#   scale_y_log10() +
+#   scale_x_reverse()
+# 
+# data_frame(N.cyano, N.phyto, N.hetero, 
+#            metric = "abundance", 
+#            location = design.dna$distance) %>% 
+#   gather(group, abundance, -metric, -location) %>% 
+#   filter(!is.na(location)) %>% 
+#   ggplot(aes(x = location, y = abundance, color = group)) +
+#   geom_jitter(alpha = 0.5) +
+#   geom_smooth() +
+#   scale_y_log10() +
+#   scale_x_reverse()
+# 
+# data_frame(HtoC, HtoP, HtoBoth, 
+#            metric = "ratio", 
+#            location = design.dna$distance) %>% 
+#   gather(group, ratio, -metric, -location) %>% 
+#   filter(!is.na(location)) %>% 
+#   ggplot(aes(x = location, y = ratio, color = group)) +
+#   geom_jitter(alpha = 0.5) +
+#   geom_smooth() +
+#   scale_y_log10() +
+#   scale_x_reverse()
 ```
 
 ## Alpha Diversity Across Gradient
@@ -246,16 +251,16 @@ RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
 lake %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = distance, y = S.obs, color = molecule, fill = molecule)) + 
-  geom_point(size = 2, alpha = 0.8) +
-  geom_smooth(method = 'lm') +
-  annotate(geom = "text", x = 50, y = 2000, size = 5,
+  geom_point(size = 2, alpha = 0.8, show.legend = F) +
+  geom_smooth(method = 'lm', show.legend = F) +
+  annotate(geom = "text", x = 50, y = 1500, size = 6,
            label = paste0("R^2== ",D1.R2), parse = T) +
   scale_x_reverse(limits = c(400,0)) + 
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)")),
        y = "Observed Richness") +
-  scale_color_manual("Community Subset", values = my.cols) +
-  scale_fill_manual("Community Subset", values = my.cols) +
-  ggsave("../figures/01_Richness.pdf", bg = "white", width = 8, height = 6)
+  scale_color_manual(values = my.cols) +
+  scale_fill_manual(values = my.cols) +
+  ggsave("../figures/01_Richness.pdf", bg = "white", width = 7, height = 6)
 
 ```
 
@@ -311,22 +316,6 @@ traj.animate <- data.frame(scores(ul.pcoa)) %>%
        y = paste0("PCoA 2 (", explainvars[2],"%)"))
 
 gganimate(traj.animate, filename = "../figures/02_trajectory-animation.mp4", ani.width = 800, ani.height = 800)
-traj.animate <- data.frame(scores(ul.pcoa)) %>% 
-  rownames_to_column("name") %>% 
-  left_join(rownames_to_column(design, "name")) %>% 
-  arrange(desc(distance)) %>% filter(type == "water") %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  mutate(transect = desc(distance)) %>% 
-  ggplot(aes(x = Dim1, y = Dim2, frame = transect, cumulative = F)) +
-  geom_point(alpha = 0.75, size = 10, aes(color = molecule)) + 
-  scale_color_manual(values = my.cols) +
-  theme(legend.title = element_blank()) +
-  coord_fixed() +
-  labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
-       y = paste0("PCoA 2 (", explainvars[2],"%)"))
-
-gganimate(traj.animate, filename = "../figures/02_trajectory-animation.mp4", ani.width = 800, ani.height = 800)
-
 
 ```
 
@@ -362,16 +351,16 @@ RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
 UL.sim %>% 
   mutate(molecule = ifelse(UL.sim$molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule)) +
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  labs(y = "Community Similarity to Soils", 
+  geom_point(alpha = 0.8, show.legend = F) + 
+  geom_smooth(method = "lm", show.legend = F) + 
+  labs(y = "Similarity to Soil Community", 
        x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) + 
   scale_color_manual("Community Subset", values = my.cols) + 
   scale_fill_manual("Community Subset", values = my.cols) +
   scale_x_reverse(limits = c(400,0)) + 
-  annotate(geom = "text", x = 50, y = 0.2, size = 5,
+  annotate(geom = "text", x = 50, y = 0.15, size = 6,
            label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
-  ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 8)
+  ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 7)
 
 ```
 
@@ -576,13 +565,29 @@ grid.raster(img)
 
 ## Identifying the Soil Bacteria
 ```{r}
-soil.only <- OTUs[, which(colSums(OTUs[-c(1:3),]) == 0)]
-lake.n.soil <- OTUs[, setdiff(colnames(OTUs),colnames(soil.only))]
+soil.only <- OTUs[, which(colSums(OTUs[-c(1:3),]) == 0)] # what is present only in soil
+lake.n.soil <- OTUs[, setdiff(colnames(OTUs),colnames(soil.only))] # what is present across all samples, but not just in soils
 
+
+# separate lake and soil samples
+lake.total <- OTUs[which(design$molecule == "DNA", design$type == "water"),]
+soil.total <- OTUs[which(design$molecule == "DNA", design$type == "soil"),]
+
+# which otus are present in both lake and soil samples
+lake.and.soil.total <- OTUs[which(design$molecule == "DNA", design$type == "water"),
+                            which(colSums(lake.total) > 0 & colSums(soil.total) > 0)]
+
+# isolate just the dna and rna lake communities
 w.dna <- OTUs[which(design$molecule == "DNA" & design$type == "water"), ]
 w.rna <- OTUs[which(design$molecule == "RNA" & design$type == "water"), ]
 
-nvr.act <- which(colSums(w.rna) == 0)
+# pull out the lake rna counds for otus found in lake and soil
+lake.and.soil.act <- w.rna[,colnames(lake.and.soil.total)]
+
+# of these lake and soil taxa, which are never active?
+nvr.act <- which(colSums(lake.and.soil.act) == 0)
+
+# pull out their dna abundances and calculate richness
 terr.lake <- w.dna[ , c(names(nvr.act))]
 terr.rich <- rowSums((terr.lake > 0) * 1)
 terr.REL <- rowSums(terr.lake) / rowSums(w.dna) 
@@ -604,14 +609,14 @@ T2.slp <- terr.mod2$coefficients[2]
 
 data_frame(transient_rich = terr.rich, distance = design.dna$distance) %>% 
   ggplot(aes(x = distance, y = transient_rich)) + 
-  geom_point() + 
-  geom_smooth(method = "lm", color = "black") +
-  scale_x_reverse(limits = c(400,0)) + 
+  geom_point(alpha = 0.8, color = "chocolate4") + 
+  geom_smooth(method = "lm", color = "chocolate4", fill = "chocolate4") +
+  scale_x_reverse(limits = c(400,0)) +
   scale_y_log10() +
   annotation_logticks(sides = "l") +
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)")),
-       y = "Transient Richness") +
-  annotate("text", x = 50, y = 1000, size = 5, label = paste0("R^2== ",T1.R2), parse = T) +
+       y = "Soil-Derived Transients") +
+  annotate("text", x = 50, y = 750, size = 6, label = paste0("R^2== ",T1.R2), parse = T) +
   ggsave("../figures/04_transient-rich.pdf", bg = "white", height = 6, width = 7)
 
 ```
@@ -735,7 +740,15 @@ plot_grid(in.soil.plot + theme(axis.title.x = element_blank()), in.lake.plot, al
 
 in.lake.core.not.soils.REL <- in.lake.core.not.soils / rowSums(w.dna) 
 
-soil.core.mods <- apply(in.lake.core.from.soils.REL, MARGIN = 2, FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
+data.frame(mean_relabund = colMeans(in.lake.core.from.soils.REL)) %>% 
+  rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
+  mutate(Taxon = paste(Phylum, Class, Order)) %>% 
+  arrange(desc(mean_relabund)) %>% 
+  ggplot() + 
+  geom_bar(aes(x = Taxon, y = mean_relabund), stat = "identity") +
+  coord_flip()
+soil.core.mods <- apply(in.lake.core.from.soils.REL, MARGIN = 2, 
+    FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
 rownames(soil.core.mods) <- c("slope", "pval")
 soil.core.decresing <- as.data.frame(t(soil.core.mods)) %>% 
   rownames_to_column("OTU") %>% 
@@ -746,6 +759,13 @@ soil.core.increasing <- as.data.frame(t(soil.core.mods)) %>%
   filter(pval < 0.05 & slope < 0) %>%   # rel abund increases toward dam
   left_join(OTU.tax)
 
+data.frame(mean_relabund = colMeans(in.lake.core.not.soils.REL)) %>% 
+  rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
+  mutate(Taxon = paste(Phylum, Class, Order)) %>% 
+  arrange(desc(mean_relabund)) %>% 
+  ggplot() + 
+  geom_bar(aes(x = Taxon, y = mean_relabund), stat = "identity") +
+  coord_flip()
 nonsoil.core.mods <- apply(in.lake.core.not.soils.REL, MARGIN = 2, FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
 rownames(nonsoil.core.mods) <- c("slope", "pval")
 nonsoil.core.decreasing <- as.data.frame(t(nonsoil.core.mods)) %>% 
@@ -764,7 +784,8 @@ as.data.frame(OTUsREL[,nonsoil.core.increasing$OTU]) %>% rownames_to_column("sam
   mutate(taxon = paste(Class, Order, Family)) %>% 
   ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
   geom_point() + 
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") + 
+  scale_x_reverse()
 
 as.data.frame(OTUsREL[,soil.core.increasing$OTU]) %>% rownames_to_column("sampleID") %>% 
   left_join(rownames_to_column(design, "sampleID")) %>% 
@@ -773,7 +794,8 @@ as.data.frame(OTUsREL[,soil.core.increasing$OTU]) %>% rownames_to_column("sample
   mutate(taxon = paste(Class, Order, Family)) %>% 
   ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
   geom_point() + 
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm") +
+  scale_x_reverse()
 
 
 # how much do the different core components contribute to total abundances
@@ -883,20 +905,28 @@ core.soil.taxa.RNA.REL.min <- as.matrix(apply(core.soil.taxa.RNA.REL, 2, min))
 core.water.taxa.DNA.REL.min <- as.matrix(apply(core.water.taxa.DNA.REL, 2, min))
 core.water.taxa.RNA.REL.min <- as.matrix(apply(core.water.taxa.RNA.REL, 2, min))
 
+core.soil.taxa.DNA.REL.mean <- as.matrix(apply(core.soil.taxa.DNA.REL, 2, mean))
+core.soil.taxa.RNA.REL.mean <- as.matrix(apply(core.soil.taxa.RNA.REL, 2, mean))
+core.water.taxa.DNA.REL.mean <- as.matrix(apply(core.water.taxa.DNA.REL, 2, mean))
+core.water.taxa.RNA.REL.mean <- as.matrix(apply(core.water.taxa.RNA.REL, 2, mean))
+
 core.soil.taxa.DNA.REL.bounds <- cbind(core.soil.taxa.DNA.REL.min, core.soil.taxa.DNA.REL.max,
-                                       core.soil.taxa.RNA.REL.min, core.soil.taxa.RNA.REL.max)
-colnames(core.soil.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max")
+                                       core.soil.taxa.RNA.REL.min, core.soil.taxa.RNA.REL.max,
+                                       core.soil.taxa.DNA.REL.mean, core.soil.taxa.RNA.REL.mean)
+colnames(core.soil.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max", "DNA.mean", "RNA.mean")
+
 core.water.taxa.DNA.REL.bounds <- cbind(core.water.taxa.DNA.REL.min, core.water.taxa.DNA.REL.max,
-                                       core.water.taxa.RNA.REL.min, core.water.taxa.RNA.REL.max)
-colnames(core.water.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max")
+                                       core.water.taxa.RNA.REL.min, core.water.taxa.RNA.REL.max,
+                                       core.water.taxa.DNA.REL.mean, core.water.taxa.RNA.REL.mean)
+colnames(core.water.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max", "DNA.mean", "RNA.mean")
 
 # core.soil and core.water are summaries of lake core
-core.soil <- as.data.frame(cbind(core.soil.taxa$Class, core.soil.taxa$Order,
-                                 round(core.soil.taxa.DNA.REL.bounds, 2)))
-colnames(core.soil) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
-core.water <- as.data.frame(cbind(core.water.taxa$Class, core.water.taxa$Order, 
-                                  round(core.water.taxa.DNA.REL.bounds,2)))
-colnames(core.water) <- c("Class", "Order", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
+core.soil <- as.data.frame(cbind(core.soil.taxa$Family, core.soil.taxa$Genus,
+                                 round(core.soil.taxa.DNA.REL.bounds[,1:4], 2)))
+colnames(core.soil) <- c("Family", "Genus", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
+core.water <- as.data.frame(cbind(core.water.taxa$Family, core.water.taxa$Genus, 
+                                  round(core.water.taxa.DNA.REL.bounds[,1:4],2)))
+colnames(core.water) <- c("Family", "Genus", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
 
 # Core Soil LaTeX Table
 addtorow <- list()
@@ -915,6 +945,42 @@ align(core.water.tab) <- "crrrrrr"
 print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, 
       type= "latex", file="../tables/table2.tex")
 print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
+
+high.activity.soil.core <- as.data.frame(core.soil.taxa.DNA.REL.bounds) %>%
+  rownames_to_column("OTU") %>% 
+  filter(RNA.max > 0) %>% arrange(desc(RNA.max)) %>% 
+  left_join(OTU.tax)
+high.activity.water.core <- as.data.frame(core.water.taxa.DNA.REL.bounds) %>%
+  rownames_to_column("OTU") %>% 
+  filter(RNA.max > 0) %>% arrange(desc(RNA.max)) %>% 
+  left_join(OTU.tax)
+
+mean.soil.abunds.soil.core <- OTUsREL[which(design$type == "soil"), high.activity.soil.core$OTU] %>% 
+  colMeans %>% data.frame(mean_soil_relabund = .) %>% 
+  rownames_to_column("OTU") %>% arrange(desc(mean_soil_relabund))
+mean.soil.abunds.water.core <- OTUsREL[which(design$type == "soil"), high.activity.water.core$OTU] %>% 
+  colMeans %>% data.frame(mean_soil_relabund = .) %>% 
+  rownames_to_column("OTU") %>% arrange(desc(mean_soil_relabund))
+
+soil.vs.lake.abunds <- high.activity.soil.core %>% left_join(mean.soil.abunds.soil.core) %>% 
+  mutate(soil_is_source = ifelse(mean_soil_relabund > 1e-3 & RNA.max > 1e-3, T, F)) %>% 
+  mutate(Taxon = ifelse(Genus == "unclassified", paste(Family, "sp."), Genus))
+soil.vs.lake.abunds %>%   
+  ggplot(aes(x = mean_soil_relabund, y = RNA.max)) +
+  geom_vline(xintercept = 1e-3, alpha = 0.1) +
+  geom_hline(yintercept = 1e-3, alpha = 0.1) +
+  geom_jitter(size = 3, aes(alpha = soil_is_source,color = soil_is_source), show.legend = F) +
+  scale_x_log10() + 
+  scale_y_log10() +
+  scale_alpha_discrete(range = c(.3,.8)) +
+  annotation_logticks() +
+  scale_color_manual(values = my.cols) +
+  labs(x = "Mean Soil Relative Abundance", y = "Max Lake RNA \nRelative Abundance") +
+  geom_text_repel(size = 5, data = subset(soil.vs.lake.abunds, soil_is_source == T), 
+                   aes(label = Taxon), force = 1.5, alpha = 0.9, segment.alpha = 0.8, box.padding = .75, max.iter = 10000) +
+  ggsave("../figures/07_soil-contribs-to-active-water-otus.pdf", bg = "white", height = 6, width = 7)
+  
+  
 ```
 
 ## Figure S1: Map of University Lake
@@ -1297,18 +1363,26 @@ plot_grid(BP.plot + theme(axis.title.x = element_blank()),
 
 
 ```{r}
-transient.metabolism <- data.frame(transients = log10(terr.REL), dist = design.dna$distance) %>% 
-  left_join(metab) 
+bp.resid <- resid(lm(BP ~ dist + I(dist)^2, data = metab))
+br.resid <- resid(lm(BR ~ dist, data = metab))
 
-bp.mod.quad <- lm(BP ~ transients + I(transients^2), data = transient.metabolism)
-bp.mod.lin <- lm(BP ~ transients, data = transient.metabolism)
-bp.mod.int <- lm(BP ~ 1, data = transient.metabolism)
+metab.resids <- metab
+metab.resids$BR_resid <- br.resid + mean(metab$BR)
+metab.resids$BP_resid <- bp.resid + mean(metab$BP)
+
+transient.metabolism <- data.frame(transients = log10(terr.REL), dist = design.dna$distance) %>% 
+  left_join(metab.resids) 
+
+
+bp.mod.quad <- lm(BP_resid ~ transients + I(transients^2), data = transient.metabolism)
+bp.mod.lin <- lm(BP_resid ~ transients, data = transient.metabolism)
+bp.mod.int <- lm(BP_resid ~ 1, data = transient.metabolism)
 anova(bp.mod.int, bp.mod.lin, bp.mod.quad)
 AIC(bp.mod.quad, bp.mod.lin, bp.mod.int)
 
-br.mod.quad <- lm(BR ~ transients + I(transients^2), data = transient.metabolism)
-br.mod.lin <- lm(BR ~ transients, data = transient.metabolism)
-br.mod.int <- lm(BR ~ 1, data = transient.metabolism)
+br.mod.quad <- lm(BR_resid ~ transients + I(transients^2), data = transient.metabolism)
+br.mod.lin <- lm(BR_resid ~ transients, data = transient.metabolism)
+br.mod.int <- lm(BR_resid ~ 1, data = transient.metabolism)
 anova(br.mod.int, br.mod.lin, br.mod.quad)
 AIC(br.mod.int, br.mod.lin, br.mod.quad)
 
@@ -1318,18 +1392,82 @@ bge.mod.int <- lm(BGE ~ 1, data = transient.metabolism)
 anova(bge.mod.int, bge.mod.lin, bge.mod.quad)
 AIC(bge.mod.int, bge.mod.lin, bge.mod.quad)
 
-data.frame(transients = terr.REL, dist = design.dna$distance) %>% 
-  left_join(metab) %>% select(-BGE) %>% gather(metab, value, -transients, -dist) %>% 
-  ggplot(aes(x = transients, y = value, color = metab, fill = metab)) +
+round(summary(br.mod.quad)$r.squared, 2)
+round(summary(bp.mod.quad)$r.squared, 2)
+
+total_core <- rowSums(OTUsREL[design$molecule == "DNA" & design$type == "water",
+                               subset(rbind.data.frame(high.activity.water.core, 
+                                                       high.activity.soil.core), RNA.max > .01)$OTU])
+
+data.frame(
+  soil_core = rowSums(OTUsREL[design$molecule == "DNA" & design$type == "water",
+           subset(soil.vs.lake.abunds, RNA.max > .01)$OTU]), 
+  dist = design.dna$distance) %>% 
+  left_join(metab.resids) %>% select(-BGE, -BP, -BR) %>% gather(metab, value, -soil_core, -dist) %>% 
+  ggplot(aes(x = soil_core, y = value, color = metab, fill = metab)) +
   geom_point(size = 2) + 
   geom_smooth(alpha = .25, method = 'lm', formula = y ~ x + I(x^2)) +
-  scale_x_log10() +
+  labs(x = "Relative Abundance of Soil-derived Core",
+       y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
+  scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  ggsave("../figures/06_soilcore-function.pdf", bg = "white", width = 7, height = 6)
+
+data.frame(
+  water_core = rowSums(OTUsREL[design$molecule == "DNA" & design$type == "water",
+                               subset(high.activity.water.core, RNA.max > .01)$OTU]), 
+  dist = design.dna$distance) %>% 
+  left_join(metab.resids) %>% select(-BGE,-BR,-BP) %>% gather(metab, value, -water_core, -dist) %>% 
+  ggplot(aes(x = water_core, y = value, color = metab, fill = metab)) +
+  geom_point(size = 2) + 
+  geom_smooth(alpha = .25, method = 'lm', formula = y ~ x + I(x^2)) +
+  labs(x = "Relative Abundance of non-soil-derived Core",
+       y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
+  scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  ggsave("../figures/06_nonsoilcore-function.pdf", bg = "white", width = 7, height = 6)
+
+
+
+data.frame(transients = resid(lm(terr.REL ~ design.dna$distance)) + mean(terr.REL), dist = design.dna$distance) %>% 
+  left_join(metab.resids) %>% select(-BGE, -BP, -BR) %>% gather(metab, value, -transients, -dist) %>% 
+  ggplot(aes(x = transients, y = value, color = metab, fill = metab)) +
+  geom_point(size = 2, show.legend = F) + 
+  geom_smooth(alpha = .25, method = 'lm', formula = y ~ x, show.legend = F) +
   annotation_logticks(sides = "b") +
   labs(x = "Relative Abundance of Transient Taxa",
        y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
   scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
   scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
-  ggsave("../figures/06_transients-function.pdf", bg = "white", width = 8, height = 6)
+  scale_y_continuous(limits = c(0,3)) +
+  theme(plot.margin = unit(c(1,1,0,0), "cm")) +
+  ggsave("../figures/06_transients-function.pdf", bg = "white", width = 7, height = 6)
+
+
+core.metab <- data.frame(
+  total_core = rowSums(OTUsREL[design$molecule == "DNA" & design$type == "water",
+                               subset(rbind.data.frame(high.activity.water.core, 
+                                                       high.activity.soil.core), RNA.max > .01)$OTU]), 
+  dist = design.dna$distance) %>% 
+  left_join(metab.resids)
+core.metab$total_core_resid <- resid(lm(total_core ~ dist, core.metab)) + mean(core.metab$total_core)
+summary(lm(BP_resid ~ total_core, core.metab))
+summary(lm(BR_resid ~ total_core + I(total_core^2), core.metab))
+
+
+core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -total_core_resid, -dist) %>% 
+  ggplot(aes(x = total_core_resid, y = value, color = metab, fill = metab)) +
+  geom_point(size = 2, show.legend = F) + 
+  geom_smooth(alpha = .25, method = 'lm', formula = y ~ x, show.legend = F) +
+  labs(x = "Relative Abundance of Core Taxa",
+       y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
+  scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
+  scale_y_continuous(limits = c(0,3)) +
+  theme(plot.margin = unit(c(1,1,0,0), "cm")) +
+  ggsave("../figures/06_core-function.pdf", bg = "white", width = 7, height = 6)
+
+
 
 ```
 

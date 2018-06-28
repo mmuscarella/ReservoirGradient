@@ -524,6 +524,7 @@ in.soil.plot <- as.data.frame(in.lake.core.from.soils.REL) %>%
   labs(title = "OTUs first found in soil") +
   geom_line(alpha = 0.25, stat = "smooth", method = "lm", se = F, show.legend = F)
 
+in.lake.core.not.soils.REL <- in.lake.core.not.soils / rowSums(w.dna) 
 in.lake.plot <- as.data.frame(in.lake.core.not.soils.REL) %>% 
   rownames_to_column("sample_ID") %>% 
   gather(OTU, rel_abundance, -sample_ID) %>% 
@@ -535,7 +536,6 @@ in.lake.plot <- as.data.frame(in.lake.core.not.soils.REL) %>%
 
 plot_grid(in.soil.plot + theme(axis.title.x = element_blank()), in.lake.plot, align = "hv", ncol = 1) + ggsave("../figures/coretaxa.png", height = 10, width = 6)
 
-in.lake.core.not.soils.REL <- in.lake.core.not.soils / rowSums(w.dna) 
 
 data.frame(mean_relabund = colMeans(in.lake.core.from.soils.REL)) %>% 
   rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
@@ -682,19 +682,28 @@ high.activity.water.core <- as.data.frame(core.water.taxa.DNA.REL.bounds) %>%
 mean.soil.abunds.soil.core <- OTUsREL[which(design$type == "soil"), high.activity.soil.core$OTU] %>% 
   colMeans %>% data.frame(mean_soil_relabund = .) %>% 
   rownames_to_column("OTU") %>% arrange(desc(mean_soil_relabund))
+max.soil.abunds.soil.core <- OTUsREL[which(design$type == "soil"), high.activity.soil.core$OTU] %>% 
+  apply(X = ., MARGIN = 2, max) %>% data.frame(max_soil_relabund = .) %>% 
+  rownames_to_column("OTU") %>% arrange(desc(max_soil_relabund))
+
 mean.soil.abunds.water.core <- OTUsREL[which(design$type == "soil"), high.activity.water.core$OTU] %>% 
   colMeans %>% data.frame(mean_soil_relabund = .) %>% 
   rownames_to_column("OTU") %>% arrange(desc(mean_soil_relabund))
+max.soil.abunds.water.core <- OTUsREL[which(design$type == "soil"), high.activity.water.core$OTU] %>% 
+  apply(X = ., MARGIN = 2, max) %>% data.frame(max_soil_relabund = .) %>% 
+  rownames_to_column("OTU") %>% arrange(desc(max_soil_relabund))
 
-soil.vs.lake.abunds <- high.activity.soil.core %>% left_join(mean.soil.abunds.soil.core) %>% 
-  mutate(soil_is_source = ifelse(mean_soil_relabund > 1e-3 & RNA.max > 1e-3, T, F)) %>% 
+
+soil.vs.lake.abunds <- high.activity.soil.core %>% 
+  left_join(mean.soil.abunds.soil.core) %>% left_join(max.soil.abunds.soil.core) %>% 
+  mutate(soil_is_source = ifelse(max_soil_relabund > 1e-3 & RNA.max > 1e-3, T, F)) %>% 
   mutate(Taxon = ifelse(Genus == "unclassified", paste(Family, "sp."), Genus))
 ```
 
 ## Figure 5: Soil vs. Lake Comparisons
 ```{r}
 soil.vs.lake.abunds %>%   
-  ggplot(aes(x = mean_soil_relabund, y = RNA.max)) +
+  ggplot(aes(x = max_soil_relabund, y = RNA.max)) +
   geom_vline(xintercept = 1e-3, alpha = 0.1) +
   geom_hline(yintercept = 1e-3, alpha = 0.1) +
   geom_jitter(size = 3, aes(alpha = soil_is_source,color = soil_is_source), show.legend = F) +
@@ -703,7 +712,7 @@ soil.vs.lake.abunds %>%
   scale_alpha_discrete(range = c(.3,.8)) +
   annotation_logticks(long = unit(.1, "in")) +
   scale_color_manual(values = my.cols) +
-  labs(x = "Mean Soil Relative Abundance", y = "Max Lake RNA \nRelative Abundance") +
+  labs(x = "Max Soil Relative Abundance", y = "Max Lake RNA \nRelative Abundance") +
   geom_text_repel(size = 5, data = subset(soil.vs.lake.abunds, soil_is_source == T), 
                    aes(label = Taxon), force = 1.5, alpha = 0.9, segment.alpha = 0.8, box.padding = .75, max.iter = 10000) +
   ggsave("../figures/05_soil-contribs-to-active-water-otus.pdf", bg = "white", height = 6, width = 7) +

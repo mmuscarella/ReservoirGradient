@@ -41,6 +41,7 @@ require("ggrepel")
 require("gganimate")
 require("maps")
 require("rgdal")
+require("iNEXT")
 
 my.cols <- viridis(2, begin = .3, end = 0.8)
 
@@ -227,29 +228,67 @@ SimpE <- function(x = ""){
 simpsE <- round(apply(OTUs, 1, SimpE), 3)
 shan <- diversity(OTUs, index = "shannon")
 exp.shan <- exp(shan)
+
+# estimate asymptotic richness
+divestim <- iNEXT(t(OTUs), datatype = "abundance", nboot = 999)
+ggiNEXT(divestim) + 
+  theme_minimal() +
+  ggsave("../figures/rareextrapcurves.png", dpi = 300, 
+         height = 10, width = 10, units = "in")
+
 alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
+
+divestim$iNextEst
+
+hill.estim <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
+  left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs")) %>% 
+  select(Site, rowname, station, molecule, type, distance) %>% 
+  left_join(divestim$AsyEst, by = "Site")
+
+hill.estim %>% filter(type == "water") %>% 
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule)) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), 
+                width = 8, alpha = 0.5) +
+  geom_smooth(method = "lm") + 
+  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
+       y = "Estimated Diversity (Hill Numbers)") +
+  scale_color_manual(values = my.cols) +
+  scale_fill_manual(values = my.cols) + 
+  theme(legend.position = c(.89,.94),
+        strip.text = element_text(size = 14),
+        strip.background = element_blank()) +
+  scale_x_reverse() +
+  facet_grid(Diversity ~ ., scales = "free") + 
+  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 8)
+
+d <- estimateD(x = t(OTUs), datatype = "abundance", base = "coverage")
+
 ```
 
 ## Alpha Diversity Across Gradient
 ```{r}
+alpha.div <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
+  left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs"))
 # Seperate data based on lake and soil samples
 lake <- alpha.div[alpha.div$type == "water",]
 soil <- alpha.div[alpha.div$type == "soil", ]
 
 
 # Calculate Linear Model
-model.rich <- lm(lake$S.obs ~ lake$distance * lake$molecule)
+model.rich <- lm(lake$Estimator ~ lake$distance * lake$molecule)
 
 # Calculate Confidance Intervals of Model
 newdata.rich <- data.frame(cbind(lake$molecule, lake$distance))
 conf95.rich <- predict(model.rich, newdata.rich, interval="confidence")
 
 # Average Richess in Terrestrial Habitat
-mean(soil$S.obs)
+mean(soil$Estimator)
 
 # Dummy Variables Regression Model ("Species Richness")
 D1 <- (lake$molecule == "RNA")*1
-fit.Fig.3a <- lm(lake$S.obs ~ lake$distance + D1 + lake$distance*D1)
+fit.Fig.3a <- lm(lake$Estimator ~ lake$distance + D1 + lake$distance*D1)
 summary(fit.Fig.3a)
 D1.R2 <- round(summary(fit.Fig.3a)$r.squared, 2)
 
@@ -259,21 +298,23 @@ RNA.int.3a <- DNA.int.3a + fit.Fig.3a$coefficients[3]
 RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
 ```
 
-## Figure 2: Richness
+## Figure 2: Estimated Richness
 ```{r}
 lake %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = S.obs, color = molecule, fill = molecule)) + 
+  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule)) + 
   geom_point(size = 2, alpha = 0.8, show.legend = T) +
+  geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), width = 8, alpha = 0.5) +
   geom_smooth(method = 'lm', show.legend = T) +
-  annotate(geom = "text", x = 50, y = 1500, size = 6,
+  annotate(geom = "text", x = 50, y = 1800, size = 6,
            label = paste0("R^2== ",D1.R2), parse = T) +
   scale_x_reverse(limits = c(400,0)) + 
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
-       y = "Observed Richness") +
+       y = "Estimated Richness") +
   theme(legend.position = c(0.9, 0.9)) +
   scale_color_manual(values = my.cols) +
   scale_fill_manual(values = my.cols) +
+  scale_y_continuous(limits = c(0, 3000)) + 
   ggsave("../figures/02_Richness.pdf", bg = "white", width = 7, height = 6) + 
   ggsave("../figures/02_Richness.png", width = 7, height = 6, dpi = 500)
 ```

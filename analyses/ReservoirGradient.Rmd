@@ -143,6 +143,8 @@ theme_maps <- function(base_size = 12, base_family = "Arial"){
     )
 }
 
+map.colors <- viridis(100)
+
 # get shape files 
 ## for map inset
 usa <- map_data("usa")
@@ -163,7 +165,7 @@ ul <- fortify(ul) # raster image for plotting with ggplot2
 
 # Main Map
 main.map <- ggplot(aes(long,lat), data = env.dat) + 
-  geom_polygon(fill = "grey", size = 0.5, color = 'black', data = ul, alpha = 1) +
+  geom_polygon(fill = "skyblue", alpha = 0.7, size = 0.5, color = 'black', data = ul, alpha = 1) +
   geom_point(size = 6, shape = 20) +
   labs(x = "Longitude (deg.)", y = "Latitude (deg.)") +
   # annotate("text", x = -86.5010, y = 39.18943, 
@@ -184,13 +186,13 @@ inset <- ggplot() +
 
 inset <- inset + geom_map(data = usa, map = usa,
                     aes(x = long, y = lat, map_id = region),
-                    color = "black", fill = "#e7e7e7", size = 0.15)
+                    color = "black", fill = "#e7e7e7", alpha = 0.8, size = 0.15)
 
 inset <- inset + geom_map(data = IN, map = IN,
                     aes(x = long, y=lat, map_id = region),
-                    color = "black", fill = "black", size = 0.15)
+                    color = "black", fill = map.colors[80], alpha = 0.8, size = 0.15)
 
-inset <- inset + geom_point(aes(x = -86.503087, y = 39.188686), color = "white", shape = 18, size = 2)
+inset <- inset + geom_point(aes(x = -86.503087, y = 39.188686), color = "black", shape = 18, size = 2)
 
 print(inset)
 
@@ -229,8 +231,10 @@ simpsE <- round(apply(OTUs, 1, SimpE), 3)
 shan <- diversity(OTUs, index = "shannon")
 exp.shan <- exp(shan)
 
-# estimate asymptotic richness
-divestim <- iNEXT(t(OTUs), datatype = "abundance", nboot = 999)
+# # estimate asymptotic richness
+# divestim <- iNEXT(t(OTUs), datatype = "abundance", nboot = 999)
+# saveRDS(divestim, file = "intermediate-data/inext-output-999boots.rda")
+divestim <- read_rds("intermediate-data/inext-output-999boots.rda")
 ggiNEXT(divestim) + 
   theme_minimal() +
   ggsave("../figures/rareextrapcurves.png", dpi = 300, 
@@ -250,7 +254,7 @@ hill.estim %>% filter(type == "water") %>%
   ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule)) + 
   geom_point() + 
   geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), 
-                width = 8, alpha = 0.5) +
+                width = 10, alpha = 0.5) +
   geom_smooth(method = "lm") + 
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
        y = "Estimated Diversity (Hill Numbers)") +
@@ -261,9 +265,11 @@ hill.estim %>% filter(type == "water") %>%
         strip.background = element_blank()) +
   scale_x_reverse() +
   facet_grid(Diversity ~ ., scales = "free") + 
-  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 8)
+  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 10) + 
+  ggsave("../figures/alpha-diversity.pdf", bg = "white", width = 7, height = 10)
 
-d <- estimateD(x = t(OTUs), datatype = "abundance", base = "coverage")
+
+
 
 ```
 
@@ -675,10 +681,17 @@ core.soil.taxa.RNA.REL.mean <- as.matrix(apply(core.soil.taxa.RNA.REL, 2, mean))
 core.water.taxa.DNA.REL.mean <- as.matrix(apply(core.water.taxa.DNA.REL, 2, mean))
 core.water.taxa.RNA.REL.mean <- as.matrix(apply(core.water.taxa.RNA.REL, 2, mean))
 
+core.soil.taxa.soil.max <- as.matrix(apply(OTUsREL[which(design$type == "soil"), rownames(core.soil.taxa.DNA.REL.bounds)], MARGIN = 2, max))
+
 core.soil.taxa.DNA.REL.bounds <- cbind(core.soil.taxa.DNA.REL.min, core.soil.taxa.DNA.REL.max,
                                        core.soil.taxa.RNA.REL.min, core.soil.taxa.RNA.REL.max,
-                                       core.soil.taxa.DNA.REL.mean, core.soil.taxa.RNA.REL.mean)
-colnames(core.soil.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max", "DNA.mean", "RNA.mean")
+                                       core.soil.taxa.DNA.REL.mean, core.soil.taxa.RNA.REL.mean, 
+                                       core.soil.taxa.soil.max)
+
+colnames(core.soil.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "RNA.max", "DNA.mean", "RNA.mean", "Soil.max")
+
+
+
 
 core.water.taxa.DNA.REL.bounds <- cbind(core.water.taxa.DNA.REL.min, core.water.taxa.DNA.REL.max,
                                        core.water.taxa.RNA.REL.min, core.water.taxa.RNA.REL.max,
@@ -687,10 +700,10 @@ colnames(core.water.taxa.DNA.REL.bounds) <- c("DNA.min", "DNA.max", "RNA.min", "
 
 # core.soil and core.water are summaries of lake core
 core.soil <- as.data.frame(cbind(core.soil.taxa$Family, core.soil.taxa$Genus,
-                                 round(core.soil.taxa.DNA.REL.bounds[,1:4], 2)))
-colnames(core.soil) <- c("Family", "Genus", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
+                                 signif(core.soil.taxa.DNA.REL.bounds[,c(1:4, 7)], digits = 3)))
+colnames(core.soil) <- c("Family", "Genus", "DNA.min", "DNA.max", "RNA.min", "RNA.max", "Soil.max")
 core.water <- as.data.frame(cbind(core.water.taxa$Family, core.water.taxa$Genus, 
-                                  round(core.water.taxa.DNA.REL.bounds[,1:4],2)))
+                                  signif(core.water.taxa.DNA.REL.bounds[,1:4], digits = 3)))
 colnames(core.water) <- c("Family", "Genus", "DNA.min", "DNA.max", "RNA.min", "RNA.max")
 
 # Core Soil LaTeX Table
@@ -711,6 +724,11 @@ print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE,
       type= "latex", file="../tables/table2.tex")
 print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
 
+```
+
+
+## Comparisons of relabunds
+```{r}
 high.activity.soil.core <- as.data.frame(core.soil.taxa.DNA.REL.bounds) %>%
   rownames_to_column("OTU") %>% 
   filter(RNA.max > 0) %>% arrange(desc(RNA.max)) %>% 
@@ -739,6 +757,26 @@ soil.vs.lake.abunds <- high.activity.soil.core %>%
   left_join(mean.soil.abunds.soil.core) %>% left_join(max.soil.abunds.soil.core) %>% 
   mutate(soil_is_source = ifelse(max_soil_relabund > 1e-3 & RNA.max > 1e-3, T, F)) %>% 
   mutate(Taxon = ifelse(Genus == "unclassified", paste(Family, "sp."), Genus))
+```
+
+## Word Table
+```{r}
+# Print table for word
+require(officer)
+require(flextable)
+
+soil.tab <- core.soil %>% arrange(desc(RNA.max)) %>% flextable() %>% autofit()
+water.tab <- core.water %>% arrange(desc(RNA.max)) %>% flextable() %>% autofit()
+
+read_docx() %>% 
+  body_add_par("Table S1", style = "heading 1") %>% 
+  body_end_section_continuous() %>% 
+  body_add_par("Core Reservoir Microbiome (present in soils)", style = "heading 2") %>% 
+  body_add_flextable(soil.tab) %>% 
+  body_add_par("Core Reservoir Microbiome (absent from soils)", style = "heading 2") %>% 
+  body_add_flextable(water.tab) %>% 
+  body_end_section_landscape() %>% 
+  print(target = "../tables/core_tables.docx")
 ```
 
 ## Figure 5: Soil vs. Lake Comparisons
@@ -1633,6 +1671,17 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
 # 
 # dev.off() # this writes plot to folder
 # graphics.off() # shuts down open devices
+
+env.dat %>% select(dist.dam, DO, pH, TP, color, chla) %>% 
+  gather(variable, value, -dist.dam) %>% 
+  ggplot(aes(x = dist.dam, y = value, color = variable)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  facet_grid(variable ~., scales = "free") + 
+  theme(strip.background = element_blank()) + 
+  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+  scale_x_reverse()
+
 ```
 
 # Figure 1: Microbial Processes Across the Gradient
@@ -1753,6 +1802,7 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
 # dev.off() # this writes plot to folder
 # graphics.off() # shuts down open devices
 # par(opar)
+
 ```
 
 ```{r fig.width=4, fig.height=5,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}

@@ -42,6 +42,9 @@ require("gganimate")
 require("maps")
 require("rgdal")
 require("iNEXT")
+require("officer")
+require("flextable")
+
 
 my.cols <- viridis(2, begin = .3, end = 0.8)
 
@@ -757,14 +760,66 @@ soil.vs.lake.abunds <- high.activity.soil.core %>%
   left_join(mean.soil.abunds.soil.core) %>% left_join(max.soil.abunds.soil.core) %>% 
   mutate(soil_is_source = ifelse(max_soil_relabund > 1e-3 & RNA.max > 1e-3, T, F)) %>% 
   mutate(Taxon = ifelse(Genus == "unclassified", paste(Family, "sp."), Genus))
+
+combined.relabunds <- max.soil.abunds.soil.core %>%
+  left_join(rownames_to_column(as.data.frame(t(in.lake.core.from.soils.REL)), "OTU"))
+rownames(combined.relabunds) <- combined.relabunds$OTU
+combined.relabunds <- combined.relabunds[,-1]
+
+otus.fold.change <- combined.relabunds / combined.relabunds$max_soil_relabund # Calculate fold changes
+
+fold_change_summary <- otus.fold.change %>% rownames_to_column("OTU") %>% 
+  select(-max_soil_relabund) %>% 
+  gather("sample", "fold_change", -OTU) %>% 
+  left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type)) %>% 
+  group_by(OTU) %>% 
+  summarize(max_change = max(fold_change), min_change = min(fold_change))
+
+otus.fold.change %>% rownames_to_column("OTU") %>% 
+  select(-max_soil_relabund) %>% 
+  gather("sample", "fold_change", -OTU) %>% 
+  left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type)) %>% 
+  ggplot(aes(x = distance, y = fold_change, color = OTU)) + 
+  geom_jitter(alpha = 0.05) + 
+  geom_smooth(alpha = 0.5, method = "lm", se = F) + 
+  scale_y_log10()
+
+otus.fold.change %>% rownames_to_column("OTU") %>% 
+  select(-max_soil_relabund) %>% 
+  gather("sample", "fold_change", -OTU) %>% 
+  left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type))
+
+foldchanges <- t(otus.fold.change)[-1,]
+foldchangelms <- apply(foldchanges, MARGIN = 2, 
+    FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[c(1,2,8)])
+rownames(foldchangelms) <- c("intercept", "slope", "pval")
+
+soil.core.decresing <- as.data.frame(t(foldchangelms)) %>% 
+  rownames_to_column("OTU") %>% 
+  filter( slope > 0) %>%   # rel abund decreases toward dam
+  left_join(OTU.tax) %>% select(-intercept, -slope, -pval, everything()) %>% 
+  arrange(desc(slope))
+soil.core.increasing <- as.data.frame(t(foldchangelms)) %>% 
+  rownames_to_column("OTU") %>% 
+  filter( slope < 0) %>%   # rel abund increases toward dam
+  left_join(OTU.tax) %>% select(-intercept, -slope, -pval, everything()) %>% 
+  arrange((slope))
+  
+soil.decrease.tab <- soil.core.decresing %>% select(-OTU, -Domain) %>%  flextable()
+soil.increase.tab <- soil.core.increasing %>% select(-OTU, -Domain) %>% flextable()
+
+read_docx() %>% 
+  body_end_section_continuous() %>% 
+  body_add_par("Increasing away from stream inlet", style = "heading 2") %>% 
+  body_add_flextable(soil.increase.tab) %>% 
+  body_add_par("Decreasing away from stream inlet", style = "heading 2") %>% 
+  body_add_flextable(soil.decrease.tab) %>% 
+  body_end_section_landscape() %>% 
+  print(target = "../tables/soil-core-change-tables.docx")
 ```
 
 ## Word Table
 ```{r}
-# Print table for word
-require(officer)
-require(flextable)
-
 soil.tab <- core.soil %>% arrange(desc(RNA.max)) %>% flextable() %>% autofit()
 water.tab <- core.water %>% arrange(desc(RNA.max)) %>% flextable() %>% autofit()
 

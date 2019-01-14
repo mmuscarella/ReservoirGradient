@@ -22,7 +22,6 @@ opar <- par(no.readonly = TRUE)  # Saves plot defaults
 # Import Required Packages
 require("png")
 require("grid")
-require("reshape")
 require("tidyverse")   
 # require("akima")
 # require("maps")
@@ -47,6 +46,7 @@ require("flextable")
 
 
 my.cols <- viridis(2, begin = .3, end = 0.8)
+my.cols <- RColorBrewer::brewer.pal(n = 4, name = "Greys")[3:4]
 
 theme_set(theme_classic() + 
   theme(axis.title = element_text(size = 20),
@@ -71,7 +71,7 @@ theme_set(theme_classic() +
 
 ## Load required R packages and tools
 ```{r results = 'hide'}
-source("../bin/MothurTools.R")
+source("../bin/mothur_tools.R")
 se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 ```
 
@@ -82,8 +82,8 @@ se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
 # shared = OTU table from mothur with sequence similarity clustering
 # Taxonomy = Taxonomic information for each OTU
 design <- "../data/UL.design.txt"
-shared <- "../data/UL.bac.final.shared"
-taxon  <- "../data/UL.bac.final.0.03.taxonomy"
+shared <- "../data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.shared"
+taxon  <- "../data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.0.03.cons.taxonomy"
 
 # Import Design
 design <- read.delim(design, header=T, row.names=1)
@@ -97,6 +97,13 @@ OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 # Load environmental data
 env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
 env.dat <- env.dat[-16,]
+
+# Subset to just the reservoir gradient sites
+OTUs <- OTUs[str_which(rownames(OTUs), "RG"),]
+OTUs <- OTUs[-which(rownames(OTUs) == "RGMockComm"),]
+
+# make sure OTU table matches up with design order
+OTUs <- OTUs[match(rownames(design), rownames(OTUs)),]
 ```
 
 ## Data Transformations
@@ -216,6 +223,20 @@ img <- readPNG("../figures/01_map.png")
 grid.raster(img)
 ```
 
+# Plot environmental gradients
+```{r}
+env.dat %>% select(dist.dam, DO, pH, TP, color, chla) %>% 
+  gather(variable, value, -dist.dam) %>% 
+  ggplot(aes(x = dist.dam, y = value)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  facet_grid(variable ~., scales = "free") + 
+  theme(strip.background = element_blank(), strip.text = element_text(size = 14)) + 
+  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+  scale_x_reverse()
+```
+
+
 # Analyze Diversity 
 ## Calculate Alpha Diversity
 ```{r}
@@ -240,12 +261,11 @@ exp.shan <- exp(shan)
 divestim <- read_rds("intermediate-data/inext-output-999boots.rda")
 ggiNEXT(divestim) + 
   theme_minimal() +
-  ggsave("../figures/rareextrapcurves.png", dpi = 300, 
-         height = 10, width = 10, units = "in")
+  scale_x_continuous(labels = scales::comma) + 
+  ggsave("../figures/rareextrapcurves.png", dpi = 500, 
+         width = 7, height = 7/1.618, units = "in", scale = 1.2)
 
 alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
-
-divestim$iNextEst
 
 hill.estim <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
   left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs")) %>% 
@@ -254,11 +274,11 @@ hill.estim <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>%
 
 hill.estim %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule)) + 
-  geom_point() + 
-  geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), 
-                width = 10, alpha = 0.5) +
-  geom_smooth(method = "lm") + 
+  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule, shape = molecule)) + 
+  geom_point(size =3) + 
+  # geom_errorbar(size = .5, aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), 
+  #               width = 10, alpha = 0.5) +
+  geom_smooth(method = "lm", aes(linetype = molecule)) + 
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
        y = "Estimated Diversity (Hill Numbers)") +
   scale_color_manual(values = my.cols) +
@@ -268,11 +288,8 @@ hill.estim %>% filter(type == "water") %>%
         strip.background = element_blank()) +
   scale_x_reverse() +
   facet_grid(Diversity ~ ., scales = "free") + 
-  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 10) + 
-  ggsave("../figures/alpha-diversity.pdf", bg = "white", width = 7, height = 10)
-
-
-
+  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 1.618*7) + 
+  ggsave("../figures/alpha-diversity.pdf", bg = "white", width = 7, height = 1.618*7)
 
 ```
 
@@ -311,10 +328,10 @@ RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
 ```{r}
 lake %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule)) + 
+  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule, shape = molecule)) + 
   geom_point(size = 2, alpha = 0.8, show.legend = T) +
   geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), width = 8, alpha = 0.5) +
-  geom_smooth(method = 'lm', show.legend = T) +
+  geom_smooth(method = 'lm', show.legend = T, aes(linetype = molecule)) +
   annotate(geom = "text", x = 50, y = 1800, size = 6,
            label = paste0("R^2== ",D1.R2), parse = T) +
   scale_x_reverse(limits = c(400,0)) + 
@@ -336,7 +353,7 @@ water.pcvals <- data.frame(scores(ul.pcoa)) %>%
   rownames_to_column("name") %>% 
   left_join(rownames_to_column(design, "name")) %>% 
   arrange(desc(distance)) %>% filter(type == "water")
-pc_dists <- data_frame(
+pc_dists <- tibble(
   DNA_dim1 = subset(water.pcvals, molecule == "DNA")$Dim1,
   DNA_dim2 = subset(water.pcvals, molecule == "DNA")$Dim2,
   RNA_dim1 = subset(water.pcvals, molecule == "RNA")$Dim1,
@@ -347,10 +364,10 @@ data.frame(scores(ul.pcoa)) %>%
   arrange(desc(distance)) %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = Dim1, y = Dim2)) +
-  geom_point(alpha = 0.5, aes(color = molecule)) + 
+  geom_point(alpha = 0.5, aes(color = molecule, shape = molecule)) + 
   geom_path(alpha = 0.75, arrow = arrow(angle = 20,
                           length = unit(0.35, "cm"),
-                          type = "closed"), aes(color = molecule)) +
+                          type = "closed"), aes(color = molecule, linetype = molecule)) +
   scale_color_manual("Community Subset", values = my.cols) +
   geom_segment(data = pc_dists,
                aes(x = DNA_dim1, y = DNA_dim2,
@@ -363,24 +380,24 @@ data.frame(scores(ul.pcoa)) %>%
   ggsave("../figures/active-tot-pcoa-trajectories.png", width = 8, height = 8)
 
 # animation
-traj.animate <- data.frame(scores(ul.pcoa)) %>% 
-  rownames_to_column("name") %>% 
-  left_join(rownames_to_column(design, "name")) %>% 
-  arrange(desc(distance)) %>% filter(type == "water", station != "UL17", station != "UL18") %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  mutate(transect = desc(distance)) %>% 
-  ggplot(aes(x = Dim1, y = Dim2, frame = transect, cumulative = TRUE)) +
-  geom_point(alpha = 0.75, size = 10, aes(color = molecule)) + 
-  geom_path(alpha = 1, size = 1, arrow = arrow(angle = 20,
-                          length = unit(0.35, "cm"),
-                          type = "closed"), aes(color = molecule)) +
-  scale_color_manual(values = my.cols) +
-  theme(legend.title = element_blank()) +
-  coord_fixed() +
-  labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
-       y = paste0("PCoA 2 (", explainvars[2],"%)"))
-
-gganimate(traj.animate, filename = "../figures/trajectory-animation.mp4", ani.width = 800, ani.height = 800)
+# traj.animate <- data.frame(scores(ul.pcoa)) %>% 
+#   rownames_to_column("name") %>% 
+#   left_join(rownames_to_column(design, "name")) %>% 
+#   arrange(desc(distance)) %>% filter(type == "water", station != "UL17", station != "UL18") %>% 
+#   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
+#   mutate(transect = desc(distance)) %>% 
+#   ggplot(aes(x = Dim1, y = Dim2, frame = transect, cumulative = TRUE)) +
+#   geom_point(alpha = 0.75, size = 10, aes(color = molecule)) + 
+#   geom_path(alpha = 1, size = 1, arrow = arrow(angle = 20,
+#                           length = unit(0.35, "cm"),
+#                           type = "closed"), aes(color = molecule)) +
+#   scale_color_manual(values = my.cols) +
+#   theme(legend.title = element_blank()) +
+#   coord_fixed() +
+#   labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
+#        y = paste0("PCoA 2 (", explainvars[2],"%)"))
+# 
+# gganimate(traj.animate, filename = "../figures/trajectory-animation.mp4", ani.width = 800, ani.height = 800)
 ```
 
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)
@@ -415,9 +432,9 @@ RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
 ```{r}
 UL.sim %>% 
   mutate(molecule = ifelse(UL.sim$molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule)) +
-  geom_point(alpha = 0.8, show.legend = T) + 
-  geom_smooth(method = "lm", show.legend = T) + 
+  ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule, shape = molecule)) +
+  geom_point(alpha = 0.8, size = 3, show.legend = T) + 
+  geom_smooth(method = "lm", show.legend = T, aes(linetype = molecule)) + 
   labs(y = "Similarity to Soil Community", 
        x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)"))) + 
   scale_color_manual(values = my.cols) + 
@@ -530,10 +547,10 @@ T2.slp <- terr.mod2$coefficients[2]
 
 ## Figure 4: Transient decay
 ```{r}
-data_frame(transient_rich = terr.rich, distance = design.dna$distance) %>% 
+tibble(transient_rich = terr.rich, distance = design.dna$distance) %>% 
   ggplot(aes(x = distance, y = transient_rich)) + 
-  geom_point(alpha = 0.8, color = "chocolate4") + 
-  geom_smooth(method = "lm", color = "chocolate4", fill = "chocolate4") +
+  geom_smooth(method = "lm", color = "black", fill = "grey") +
+  geom_point(alpha = 1, color = "black") + 
   scale_x_reverse(limits = c(400,0)) +
   scale_y_log10() +
   annotation_logticks(sides = "l") +
@@ -640,8 +657,8 @@ as.data.frame(OTUsREL[,soil.core.increasing$OTU]) %>% rownames_to_column("sample
   filter(molecule == "DNA") %>% left_join(OTU.tax) %>% 
   mutate(taxon = paste(Class, Order, Family)) %>% 
   ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
-  geom_point() + 
-  geom_smooth(method = "lm") +
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "lm", se = FALSE) +
   scale_x_reverse()
 
 
@@ -684,7 +701,7 @@ core.soil.taxa.RNA.REL.mean <- as.matrix(apply(core.soil.taxa.RNA.REL, 2, mean))
 core.water.taxa.DNA.REL.mean <- as.matrix(apply(core.water.taxa.DNA.REL, 2, mean))
 core.water.taxa.RNA.REL.mean <- as.matrix(apply(core.water.taxa.RNA.REL, 2, mean))
 
-core.soil.taxa.soil.max <- as.matrix(apply(OTUsREL[which(design$type == "soil"), rownames(core.soil.taxa.DNA.REL.bounds)], MARGIN = 2, max))
+core.soil.taxa.soil.max <- as.matrix(apply(OTUsREL[which(design$type == "soil"), rownames(core.soil.taxa.DNA.REL.max)], MARGIN = 2, max))
 
 core.soil.taxa.DNA.REL.bounds <- cbind(core.soil.taxa.DNA.REL.min, core.soil.taxa.DNA.REL.max,
                                        core.soil.taxa.RNA.REL.min, core.soil.taxa.RNA.REL.max,
@@ -716,7 +733,7 @@ addtorow$command <- c("& \\multicolumn{1}{c}{Class} & \\multicolumn{1}{c}{Order}
                       \\multicolumn{2}{c}{DNA} & \\multicolumn{2}{c}{RNA} \\\\\n", 
                       "& &  & min & max & min & max \\\\\n")
 core.soil.tab <- xtable(core.soil)
-align(core.soil.tab) <- "crrrrrr"
+align(core.soil.tab) <- "crrrrrrr"
 print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, 
       type= "latex", file="../tables/table1.tex")
 print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
@@ -1727,15 +1744,7 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
 # dev.off() # this writes plot to folder
 # graphics.off() # shuts down open devices
 
-env.dat %>% select(dist.dam, DO, pH, TP, color, chla) %>% 
-  gather(variable, value, -dist.dam) %>% 
-  ggplot(aes(x = dist.dam, y = value, color = variable)) + 
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  facet_grid(variable ~., scales = "free") + 
-  theme(strip.background = element_blank()) + 
-  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
-  scale_x_reverse()
+
 
 ```
 

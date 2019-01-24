@@ -70,7 +70,9 @@ theme_set(theme_classic() +
         axis.ticks.length = unit(.1, "in"),
         panel.border = element_rect(color = "black", fill = NA, size = 1.5),
         legend.title = element_blank(),
-        legend.text = element_text(size = 16)
+        legend.text = element_text(size = 16),
+        strip.text = element_text(size = 14),
+        strip.background = element_blank()
         ))
 ```
 
@@ -188,7 +190,7 @@ divestim.df %>%
   geom_line(alpha = 1, linetype = "dashed") +
   scale_x_continuous(labels = scales::comma) +
   labs(x = "Sample Size", y = "Species Diversity") +
-  theme(legend.position = "top") +
+  theme(legend.position =  c(.9,.95)) +
   scale_color_grey(end = .7) +
   scale_fill_grey(end = .7)
 ```
@@ -246,9 +248,7 @@ hill.estim %>% filter(type == "water") %>%
        y = "Estimated Diversity (Hill Numbers)") +
   scale_color_manual(values = my.cols) +
   scale_fill_manual(values = my.cols) + 
-  theme(legend.position = c(.85,.95),
-        strip.text = element_text(size = 14),
-        strip.background = element_blank()) +
+  theme(legend.position = c(.85,.95)) +
   scale_x_reverse() +
   facet_grid(Diversity ~ ., scales = "free")
   
@@ -260,60 +260,10 @@ Second, we note that the metabolically actively community has much lower diversi
 Last, because we quantified diversity across three orders of Hill numbers (q = 0, 1, and 2), we can also say something about the relative importance of rare versus common taxa along the reservoir transect. 
 We see the the significance of the distance-by-molecule interaction term decrease as rare taxa are downweighted in favor of common taxa. This suggests that the differences between the active and total communities along the transect is driven primarily by rare taxa. However, the general trend of higher Simpson diversity across the whole transect suggests that low-activity, but relatively common, taxa are maintained in the reservoir.
 
-## Alpha Diversity Across Gradient
-```{r}
-alpha.div <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
-  left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs"))
-# Seperate data based on lake and soil samples
-lake <- alpha.div[alpha.div$type == "water",]
-soil <- alpha.div[alpha.div$type == "soil", ]
 
-
-# Calculate Linear Model
-model.rich <- lm(lake$Estimator ~ lake$distance * lake$molecule)
-summary(model.rich)
-# Calculate Confidance Intervals of Model
-newdata.rich <- data.frame(cbind(lake$molecule, lake$distance))
-conf95.rich <- predict(model.rich, newdata.rich, interval="confidence")
-
-# Average Richess in Terrestrial Habitat
-mean(soil$Estimator)
-
-# Dummy Variables Regression Model ("Species Richness")
-D1 <- (lake$molecule == "RNA")*1
-fit.Fig.3a <- lm(lake$Estimator ~ lake$distance + D1 + lake$distance*D1)
-summary(fit.Fig.3a)
-D1.R2 <- round(summary(fit.Fig.3a)$r.squared, 2)
-
-DNA.int.3a <- fit.Fig.3a$coefficients[1]
-DNA.slp.3a <- fit.Fig.3a$coefficients[2]
-RNA.int.3a <- DNA.int.3a + fit.Fig.3a$coefficients[3]
-RNA.slp.3a <- DNA.slp.3a + fit.Fig.3a$coefficients[4]
-```
-
-## Figure 2: Estimated Richness
-```{r}
-lake %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule, shape = molecule)) + 
-  geom_point(size = 2, alpha = 0.8, show.legend = T) +
-  geom_errorbar(aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), width = 8, alpha = 0.5) +
-  geom_smooth(method = 'lm', show.legend = T, aes(linetype = molecule)) +
-  annotate(geom = "text", x = 50, y = 1800, size = 6,
-           label = paste0("R^2== ",D1.R2), parse = T) +
-  scale_x_reverse(limits = c(400,0)) + 
-  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
-       y = "Estimated Richness") +
-  theme(legend.position = c(0.9, 0.9)) +
-  scale_color_manual(values = my.cols) +
-  scale_fill_manual(values = my.cols) +
-  scale_y_continuous(limits = c(0, 3000)) + 
-  ggsave("figures/02_Richness.pdf", bg = "white", width = 7, height = 6) + 
-  ggsave("figures/02_Richness.png", width = 7, height = 6, dpi = 500)
-```
-
-## Track structure across space
-```{r}
+## How does community structure change along the gradient?
+First, we'll just get an overview of how the communities look along the aquatic transect. 
+```{r ordination}
 ul.pcoa <- cmdscale(vegdist(OTUsREL.log, method="bray"), 2, eig = T, add = T)
 explainvars <- round(eigenvals(ul.pcoa)[c(1,2)]/sum(eigenvals(ul.pcoa)),3) *100
 water.pcvals <- data.frame(scores(ul.pcoa)) %>% 
@@ -331,18 +281,21 @@ data.frame(scores(ul.pcoa)) %>%
   arrange(desc(distance)) %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = Dim1, y = Dim2)) +
-  geom_point(alpha = 0.5, aes(color = molecule, shape = molecule)) + 
-  geom_path(alpha = 0.75, arrow = arrow(angle = 20,
+  geom_point(size = 3, alpha = 0.5, aes(color = molecule, shape = molecule)) + 
+  geom_path(size = 1.2, alpha = 0.75, arrow = arrow(angle = 20,
                           length = unit(0.35, "cm"),
                           type = "closed"), aes(color = molecule, linetype = molecule)) +
   scale_color_manual("Community Subset", values = my.cols) +
   geom_segment(data = pc_dists,
                aes(x = DNA_dim1, y = DNA_dim2,
                    xend = RNA_dim1, yend = RNA_dim2),
-               alpha = 0.05) +
+               alpha = 0) +
   coord_fixed() +
   labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
        y = paste0("PCoA 2 (", explainvars[2],"%)")) +
+  theme(legend.position = "none") +
+  annotate(geom = "text", x = .2, y = -.3, label = "Active", size = 6) +
+  annotate(geom = "text", x = -.3, y = .1, label = "Total", size = 6) +
   ggsave("figures/active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8) +
   ggsave("figures/active-tot-pcoa-trajectories.png", width = 8, height = 8)
 
@@ -366,9 +319,13 @@ data.frame(scores(ul.pcoa)) %>%
 # 
 # gganimate(traj.animate, filename = "../figures/trajectory-animation.mp4", ani.width = 800, ani.height = 800)
 ```
+So, it appears that there is convergence in community structure along the path from stream inlet to the dam.
+This could reflect a loss of soil-derived taxa in the aquatic samples.
+To test this, we'll look at \(\beta\)-diversity along the gradient with respect to the soil samples. 
+If we see a decay in similarity to soils, this suggests soil taxa are having a comparatively lower influence with distance from the inlet. 
 
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)
-```{r}
+```{r tab_similarity_to_soils}
 # Similarity to Soil Sample
 UL.bray      <- 1-as.matrix(vegdist(OTUsREL.log, method="bray"))
 UL.bray.lake <- UL.bray[-c(1:3), 1:3] 
@@ -377,45 +334,49 @@ bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
 UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
 
 # Calculate Linear Model
-model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
+model.terr <- lm(bray.mean ~ distance * molecule, data = UL.sim)
+pander(model.terr)
 
-# Calculate Confidance Intervals of Model
-newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
-conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
-
-# Dummy Variables Regression Model ("Terrestrial Influence")
-D2 <- (UL.sim$molecule == "RNA")*1
-fit.Fig.3b <- lm(UL.sim$bray.mean ~ UL.sim$distance + D2 + UL.sim$distance*D2)
-D2.R2 <- round(summary(fit.Fig.3b)$r.squared, 2)
-summary(fit.Fig.3b)
-
-DNA.int.3b <- fit.Fig.3b$coefficients[1]
-DNA.slp.3b <- fit.Fig.3b$coefficients[2]
-RNA.int.3b <- DNA.int.3b + fit.Fig.3b$coefficients[3]
-RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
+# # Calculate Confidance Intervals of Model
+# newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
+# conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
+# 
+# # Dummy Variables Regression Model ("Terrestrial Influence")
+# D2 <- (UL.sim$molecule == "RNA")*1
+# fit.Fig.3b <- lm(UL.sim$bray.mean ~ UL.sim$distance + D2 + UL.sim$distance*D2)
+# D2.R2 <- round(summary(fit.Fig.3b)$r.squared, 2)
+# summary(fit.Fig.3b)
+# 
+# 
+# DNA.int.3b <- fit.Fig.3b$coefficients[1]
+# DNA.slp.3b <- fit.Fig.3b$coefficients[2]
+# RNA.int.3b <- DNA.int.3b + fit.Fig.3b$coefficients[3]
+# RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
 ```
 
-## Figure 3: Similarity to Soils
-```{r}
+
+```{r plot_similarity_to_soils}
 UL.sim %>% 
   mutate(molecule = ifelse(UL.sim$molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule, shape = molecule)) +
+  ggplot(aes(x = distance, y = bray.mean, 
+             color = molecule, fill = molecule, shape = molecule)) +
   geom_point(alpha = 0.8, size = 3, show.legend = T) + 
   geom_smooth(method = "lm", show.legend = T, aes(linetype = molecule)) + 
   labs(y = "Similarity to Soil Community", 
-       x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)"))) + 
+       x = "Reservoir Transect (m)") + 
   scale_color_manual(values = my.cols) + 
   scale_fill_manual(values = my.cols) +
   theme(legend.position = c(0.9, 0.9)) +
   scale_x_reverse(limits = c(400,0)) + 
   annotate(geom = "text", x = 50, y = 0.15, size = 6,
-           label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
-  ggsave("figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("figures/03_similarity-to-soils.png", dpi = 500, height = 6, width = 7)
+           label = paste0("R^2== ",round(summary(model.terr)$r.squared, 2)), parse = T)
 ```
 
-## Similarity To Lake Habitat Across Gradient
-```{r}
+## What about within-lake \(\beta\)-diversity?
+An alternative reason for convergence of aquatic communities along the reservoir and decay in similarity to soils is that niche selection is acting on aquatic community structure and driving shifts in composition along the gradient. 
+To test this idea, we look at the similarity of the active and total communities to the samples taken at the dam of the reservoir, which we expect to have a low influence of soil taxa. 
+
+```{r plot_similarity_to_lake}
 # Similarity to Lake Samples 1 and 2
 UL.bray2      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
 UL.bray.lake2 <- UL.bray[-c(1:3), 4:7]
@@ -423,28 +384,18 @@ UL.sim2       <- cbind(design[-c(1:3), ],
                        "DNA" = apply(UL.bray.lake2[,c(1,3)], 1, mean), 
                        "RNA" = apply(UL.bray.lake2[,c(2,4)], 1, mean))
 
-UL.sim2 %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = DNA, color = molecule, fill = molecule)) +
+UL.sim2 %>% gather(DNA, RNA, key = "comparison", value = "similarity") %>% 
+  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active"),
+         comparison = ifelse(comparison == "DNA", "Total", "Active")) %>% 
+  ggplot(aes(x = distance, y = similarity, color = molecule, fill = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
-  labs(y = "Similarity to total lake community (DNA)", 
-       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam Transect"))) +
+  labs(y = "Similarity to lake community", 
+       x = "Reservoir Transect (m)") +
   scale_x_reverse() +
   scale_color_manual("Community Subset", values = my.cols) +
-  scale_fill_manual("Community Subset", values = my.cols)
-
-UL.sim2 %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = RNA, color = molecule, fill = molecule)) +
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  labs(y = "Similarity to active lake community (RNA)", 
-       x = (expression("Soil" %->% "Stream" %->% "Reservoir" %->% "Dam Transect"))) +
-  scale_x_reverse() +
-  scale_color_manual("Community Subset", values = my.cols) +
-  scale_fill_manual("Community Subset", values = my.cols)
-
+  scale_fill_manual("Community Subset", values = my.cols) + 
+  facet_wrap(~ comparison)
 
 # Calculate Linear Model
 model.lake1 <- lm(UL.sim2$DNA ~ UL.sim2$distance * UL.sim2$molecule)
@@ -452,19 +403,19 @@ model.lake2 <- lm(UL.sim2$RNA ~ UL.sim2$distance * UL.sim2$molecule)
 summary(model.lake1)
 summary(model.lake2)
 
-# Calculate Confidance Intervals of Model
-newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
-conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
-
-# Dummy Variables Regression Model ("Lake Influence")
-D3 <- (UL.sim2$molecule == "RNA")*1
-fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
-# summary(fit.Fig.3c)
-
-DNA.int.3c <- fit.Fig.3c$coefficients[1]
-DNA.slp.3c <- fit.Fig.3c$coefficients[2]
-RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
-RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
+# # Calculate Confidance Intervals of Model
+# newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
+# conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
+# 
+# # Dummy Variables Regression Model ("Lake Influence")
+# D3 <- (UL.sim2$molecule == "RNA")*1
+# fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
+# # summary(fit.Fig.3c)
+# 
+# DNA.int.3c <- fit.Fig.3c$coefficients[1]
+# DNA.slp.3c <- fit.Fig.3c$coefficients[2]
+# RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
+# RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
 ```
 
 # Identifying the Soil Bacteria
@@ -504,16 +455,17 @@ summary(terr.mod1)
 T1.R2 <- round(summary(terr.mod1)$r.squared, 2)
 T1.int <- terr.mod1$coefficients[1]
 T1.slp <- terr.mod1$coefficients[2]
+pander(terr.mod1)
 
-terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
-summary(terr.mod2)
-T2.R2 <- round(summary(terr.mod2)$r.squared, 2)
-T2.int <- terr.mod2$coefficients[1]
-T2.slp <- terr.mod2$coefficients[2]
+# terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
+# summary(terr.mod2)
+# T2.R2 <- round(summary(terr.mod2)$r.squared, 2)
+# T2.int <- terr.mod2$coefficients[1]
+# T2.slp <- terr.mod2$coefficients[2]
 ```
 
 ## Figure 4: Transient decay
-```{r}
+```{r plot_transient}
 tibble(transient_rich = terr.rich, distance = design.dna$distance) %>% 
   ggplot(aes(x = distance, y = transient_rich)) + 
   geom_smooth(method = "lm", color = "black", fill = "grey") +
@@ -521,16 +473,14 @@ tibble(transient_rich = terr.rich, distance = design.dna$distance) %>%
   scale_x_reverse(limits = c(400,0)) +
   scale_y_log10() +
   annotation_logticks(sides = "l") +
-  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
-       y = "Soil-Derived Transients") +
-  annotate("text", x = 50, y = 750, size = 6, label = paste0("R^2== ",T1.R2), parse = T) +
-  ggsave("figures/04_transient-rich.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("figures/04_transient-rich.png", dpi = 500, height = 6, width = 7)
+  labs(x = "Reservoir Transect (m)",
+       y = "Soil-derived Taxa Richness") +
+  annotate("text", x = 50, y = 750, size = 6, label = paste0("R^2== ",T1.R2), parse = T) 
 
 ```
 
 # Define Core Lake Taxa
-```{r}
+```{r core_taxa}
 # identify otus in soil samples and lake samples
 in.soil <- OTUs[, which(colSums(OTUs[c(1:3),]) > 0 )]
 in.lake <- OTUs[, which(colSums(OTUs[-c(1:3),]) > 0)]
@@ -550,27 +500,33 @@ in.lake.core.not.soils <- in.lake.core[, setdiff(colnames(in.lake.core), colname
 
 
 in.lake.core.from.soils.REL <- in.lake.core.from.soils / rowSums(w.dna)
-in.soil.plot <- as.data.frame(in.lake.core.from.soils.REL) %>% 
+
+in.soil.to.plot <- as.data.frame(in.lake.core.from.soils.REL) %>% 
   rownames_to_column("sample_ID") %>% 
   gather(otu_id, rel_abundance, -sample_ID) %>% 
   left_join(rownames_to_column(design.dna, "sample_ID")) %>% 
-  ggplot(aes(x = distance, y = rel_abundance, color = otu_id)) + 
-  labs(title = "OTUs first found in soil") +
-  geom_line(alpha = 0.25, stat = "smooth", method = "lm", se = F, show.legend = F)
+  add_column(found = "soils")
 
-in.lake.core.not.soils.REL <- in.lake.core.not.soils / rowSums(w.dna) 
-in.lake.plot <- as.data.frame(in.lake.core.not.soils.REL) %>% 
+in.lake.core.not.soils.REL <- in.lake.core.not.soils / rowSums(w.dna)
+
+in.lake.to.plot <- as.data.frame(in.lake.core.not.soils.REL) %>% 
   rownames_to_column("sample_ID") %>% 
-  gather(OTU, rel_abundance, -sample_ID) %>% 
+  gather(otu_id, rel_abundance, -sample_ID) %>% 
   left_join(rownames_to_column(design.dna, "sample_ID")) %>% 
-  left_join(OTU.tax) %>% 
-  ggplot(aes(x = distance, y = rel_abundance, color = OTU)) + 
+  add_column(found = "lake")
+```
+
+Now, lets plot the abundances of the OTUs across the reservoir and split them up into whether they were recovered in soils or not. 
+```{r coreplot}
+bind_rows(in.soil.to.plot, in.lake.to.plot) %>% 
+  ggplot(aes(x = distance, y = rel_abundance, color = otu_id)) + 
+  labs(x = "Reservoir Transect (m)", 
+       y = "OTU Relative Abundance") +
   geom_line(alpha = 0.25, stat = "smooth", method = "lm", se = F, show.legend = F) +
-  labs(title = "OTUs first found in the reservoir")
+  facet_wrap(~ found, ncol = 1)
+```
 
-plot_grid(in.soil.plot + theme(axis.title.x = element_blank()), in.lake.plot, align = "hv", ncol = 1) + ggsave("figures/coretaxa.png", height = 10, width = 6)
-
-
+```{r}
 data.frame(mean_relabund = colMeans(in.lake.core.from.soils.REL)) %>% 
   rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
   mutate(Taxon = paste(Phylum, Class, Order)) %>% 
@@ -715,7 +671,11 @@ print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment =
 
 
 ## Comparisons of relabunds
-```{r, eval=FALSE}
+Now, lets see which taxa increase or decrease substantially along the gradient. 
+I calculated the fold change in relative abundance of all these taxa along the gradient relative to their max abundance in soils.
+Thus, the OTUs that are most abundant near the soils will have a declining slope toward the dam. 
+The OTUs that are perhaps seeded from the soils into the lake will have an increasing slope toward the dam. 
+```{r, fold_change_plot}
 high.activity.soil.core <- as.data.frame(core.soil.taxa.DNA.REL.bounds) %>%
   rownames_to_column("OTU") %>% 
   filter(RNA.max > 0) %>% arrange(desc(RNA.max)) %>% 
@@ -750,7 +710,7 @@ combined.relabunds <- max.soil.abunds.soil.core %>%
 rownames(combined.relabunds) <- combined.relabunds$OTU
 combined.relabunds <- combined.relabunds[,-1]
 
-otus.fold.change <- combined.relabunds / combined.relabunds$max_soil_relabund # Calculate fold changes
+otus.fold.change <- na.omit(combined.relabunds / combined.relabunds$max_soil_relabund) # Calculate fold changes
 
 fold_change_summary <- otus.fold.change %>% rownames_to_column("OTU") %>% 
   select(-max_soil_relabund) %>% 
@@ -764,14 +724,19 @@ otus.fold.change %>% rownames_to_column("OTU") %>%
   gather("sample", "fold_change", -OTU) %>% 
   left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type)) %>% 
   ggplot(aes(x = distance, y = fold_change, color = OTU)) + 
+  geom_hline(aes(yintercept = 1), color = "gray50", alpha = 0.5, size = 2) +
   geom_jitter(alpha = 0.05) + 
   geom_smooth(alpha = 0.5, method = "lm", se = F) + 
-  scale_y_log10()
+  scale_y_log10(labels = scales::comma) +
+  scale_x_reverse() +
+  annotation_logticks(long = unit(.1, "in"), sides = "l") +
+  theme(legend.position = "none") +
+  labs(x = "Reservoir Transect (m)", y = "Fold-change in abundance")
 
-otus.fold.change %>% rownames_to_column("OTU") %>% 
-  select(-max_soil_relabund) %>% 
-  gather("sample", "fold_change", -OTU) %>% 
-  left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type))
+# otus.fold.change %>% rownames_to_column("OTU") %>% 
+#   select(-max_soil_relabund) %>% 
+#   gather("sample", "fold_change", -OTU) %>% 
+#   left_join(select(rownames_to_column(design.dna, "sample"), -station, -molecule, -type))
 
 foldchanges <- t(otus.fold.change)[-1,]
 foldchangelms <- apply(foldchanges, MARGIN = 2, 
@@ -819,22 +784,20 @@ read_docx() %>%
 ```
 
 ## Figure 5: Soil vs. Lake Comparisons
-```{r, eval=FALSE}
-soil.vs.lake.abunds %>%   
+```{r soil_lake_plot}
+soil.vs.lake.abunds %>% 
+  mutate(Genus = str_replace(Genus, "_unclassified", " sp.")) %>% 
+  filter(max_soil_relabund > 0) %>% 
   ggplot(aes(x = max_soil_relabund, y = RNA.max)) +
   geom_vline(xintercept = 1e-3, alpha = 0.1) +
   geom_hline(yintercept = 1e-3, alpha = 0.1) +
-  geom_jitter(size = 3, aes(alpha = soil_is_source,color = soil_is_source), show.legend = F) +
-  scale_x_log10() + 
-  scale_y_log10() +
-  scale_alpha_discrete(range = c(.3,.8)) +
+  geom_jitter(size = 3, alpha = 0.5, show.legend = F) +
+  scale_x_log10(lim = c(1e-6, 1e-2)) + 
+  scale_y_log10(lim = c(1e-5, 1)) +
   annotation_logticks(long = unit(.1, "in")) +
   scale_color_manual(values = my.cols) +
   labs(x = "Max Soil Relative Abundance", y = "Max Lake RNA \nRelative Abundance") +
-  geom_text_repel(size = 5, data = subset(soil.vs.lake.abunds, soil_is_source == T), 
-                   aes(label = Taxon), force = 1.5, alpha = 0.9, segment.alpha = 0.8, box.padding = .75, max.iter = 10000) +
-  ggsave("figures/05_soil-contribs-to-active-water-otus.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("figures/05_soil-contribs-to-active-water-otus.png", dpi = 500, height = 6, width = 7)
+  geom_text_repel(size = 4.5, aes(label = Genus), force = 1.5, alpha = 0.9, segment.alpha = 0.8, box.padding = .75, max.iter = 100000)
 ```
 
 # Ecosystem Functioning
@@ -1120,725 +1083,6 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
 # vp.act.neg <- varpart(lake.act, aems[,c("AEM8", "AEM9", "AEM10")], env, transfo = "hellinger")
 # vp.act.neg
 # plot(vp.act.neg)
-```
-
-# null model to control for richness
-```{r}
-# require("progress")
-# 
-# Calculate abundance-weighted Raup-Crick dissimilarities
-# rcbraycurtis <- function(OTUs){
-#   regional.abunds <- t(as.matrix(colSums(OTUs)))
-#   regional.relabunds <- decostand(regional.abunds, method = "total")
-#   occupancy.probs <- t(as.matrix(colSums(decostand(OTUs, method = "pa")) / nrow(OTUs)))
-#   site.abunds <- rowSums(OTUs)
-#   site.rich <- specnumber(OTUs)
-#   a <- regional.relabunds * occupancy.probs
-# 
-#   # Create a null community based on Stegen et al. 2015
-#   r <- nrow(OTUs)
-#   c <- ncol(OTUs)
-#   spec.vec <- 1:ncol(OTUs)
-#   RCbc.nulls <- array(NA, c(r, r, 999))
-# 
-#   # stochastic community assembly nulls
-#   for(i in 1:999){
-#     if(i == 1) pb <- progress_bar$new(total = 999, force = T)
-#     pb$update(ratio = i/999)
-# 
-#     null.comm <- OTUs * 0
-#     # for first simulation:
-#     for(row.i in 1:nrow(null.comm)){
-#       #print(paste("run :", i, " -> ", row.i, " : ", site.abunds[row.i], " inds"))
-# 
-#       while(rowSums(null.comm)[row.i] < site.abunds[row.i]){
-# 
-# 
-#         # choose a species based on its occupancy
-#         local.specs <- sample(x = spec.vec, size = site.rich[row.i],
-#                               prob = as.vector(occupancy.probs), replace = FALSE)
-# 
-#         local.probs <- decostand(t(as.matrix(regional.abunds[,local.specs])), method = "total")
-# 
-#         local.inds <- sample(x = local.specs, size = site.abunds[row.i],
-#                              prob = as.vector(local.probs), replace = TRUE)
-# 
-#         local.abunds <- rle(sort(local.inds))
-# 
-#         # add an individual to the local community
-#         null.comm[row.i, local.abunds$values] <- local.abunds$lengths
-#       }
-#     }
-#     null.bc <- as.matrix(vegdist(decostand(null.comm, method = "log"), method = "bray"))
-#     RCbc.nulls[,,i] <- null.bc
-#   }
-# }
-# 
-# RCbc.nulls.total <- rcbraycurtis(OTUs = OTUs[which(design$molecule == "DNA"),])
-# RCbc.nulls.active <- rcbraycurtis(OTUs = OTUs[which(design$molecule == "RNA"),])
-# 
-# saveRDS(RCbc.nulls.total, file = "intermediate-data/RCbc.null.total.rda")
-# saveRDS(RCbc.nulls.active, file = "intermediate-data/RCbc.null.active.rda")
-# 
-# RCbc.nulls.total <- readRDS(file = "intermediate-data/RCbc.null.total.rda")
-# RCbc.nulls.active <- readRDS(file = "intermediate-data/RCbc.null.active.rda")
-# 
-# obs.bc.total <- as.matrix(vegdist(OTUsREL[which(design$molecule == "DNA"),], method = "bray"))
-# obs.bc.active <- as.matrix(vegdist(OTUsREL[which(design$molecule == "RNA"),], method = "bray"))
-# 
-# get.rcbrayvals <- function(obs.bc, RCbc.nulls){
-#   r <- nrow(as.matrix(obs.bc))
-#   site.compares <- expand.grid(site1 = 1:r, site2 = 1:r)
-#   RC.bray <- matrix(NA, nrow = r, ncol = r)
-# 
-#   for(row.i in 1:nrow(site.compares)){
-#     site1 <- site.compares[row.i,1]
-#     site2 <- site.compares[row.i,2]
-#     pairwise.null <- RCbc.nulls[site1,site2,]
-#     pairwise.bray <- obs.bc[site1,site2]
-#     num.greater <- sum(pairwise.null > pairwise.bray)
-#     num.ties <- sum(pairwise.null == pairwise.bray)
-#     val <- (((1 * num.greater) + (0.5 * num.ties))/1000 - 0.5) * 2
-#     RC.bray[site1, site2] <- val
-#   }
-#   return(RC.bray)
-# }
-# 
-# RC.bray.active <- get.rcbrayvals(obs.bc.active, RCbc.nulls.active)
-# rownames(RC.bray.active) <- rownames(subset(design, molecule == "RNA"))
-# colnames(RC.bray.active) <- rownames(subset(design, molecule == "RNA"))
-# RC.bray.active.dist <- as.dist(RC.bray.active)
-# 
-# RC.bray.total <- get.rcbrayvals(obs.bc.total, RCbc.nulls.total)
-# rownames(RC.bray.total) <- rownames(subset(design, molecule == "DNA"))
-# colnames(RC.bray.total) <- rownames(subset(design, molecule == "DNA"))
-# RC.bray.total.dist <- as.dist(RC.bray.total)
-# 
-# # Similarity to Soil Sample
-# UL.bray      <- 1-as.matrix(vegdist(OTUsREL.log, method="bray"))
-# UL.bray.lake <- UL.bray[-c(1:3), 1:3] 
-# bray.mean    <- round(apply(UL.bray.lake, 1, mean), 3)
-# bray.se      <- round(apply(UL.bray.lake, 1, se), 3)
-# UL.sim       <- cbind(design[-c(1:3), ], bray.mean, bray.se)
-# 
-# 
-# # Calculate Linear Model
-# model.terr <- lm(UL.sim$bray.mean ~ UL.sim$distance * UL.sim$molecule)
-# 
-# # Calculate Confidance Intervals of Model
-# newdata.terr <- data.frame(cbind(UL.sim$molecule, UL.sim$distance))
-# conf95.terr <- predict(model.terr, newdata.terr, interval="confidence")
-# 
-# # Dummy Variables Regression Model ("Terrestrial Influence")
-# D2 <- (UL.sim$molecule == "RNA")*1
-# fit.Fig.3b <- lm(UL.sim$bray.mean ~ UL.sim$distance + D2 + UL.sim$distance*D2)
-# D2.R2 <- round(summary(fit.Fig.3b)$r.squared, 2)
-# summary(fit.Fig.3b)
-# 
-# DNA.int.3b <- fit.Fig.3b$coefficients[1]
-# DNA.slp.3b <- fit.Fig.3b$coefficients[2]
-# RNA.int.3b <- DNA.int.3b + fit.Fig.3b$coefficients[3]
-# RNA.slp.3b <- DNA.slp.3b + fit.Fig.3b$coefficients[4]
-# 
-# 
-# UL.sim %>% 
-#   mutate(molecule = ifelse(UL.sim$molecule == "DNA", "Total", "Active")) %>% 
-#   ggplot(aes(x = distance, y = bray.mean, color = molecule, fill = molecule)) +
-#   geom_point() + 
-#   geom_smooth(method = "lm") + 
-#   labs(y = "Community Similarity to Soils", 
-#        x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) + 
-#   scale_color_manual("Community Subset", values = my.cols) + 
-#   scale_fill_manual("Community Subset", values = my.cols) +
-#   scale_x_reverse(limits = c(400,0)) + 
-#   annotate(geom = "text", x = 50, y = 0.2, size = 5,
-#            label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
-#   ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 8)
-# 
-# RC.bray.total.dist
-```
-
-## Import Phototrophs
-```{r}
-# # The phototrophs
-# cyanos.in <- "../data/UL.cyano.final.shared"
-# phytos.in <- "../data/UL.euks.final.shared"
-# 
-# cyanos <- read.otu(shared = cyanos.in, cutoff = "0.03")
-# phytos <- read.otu(shared = phytos.in, cutoff = "0.03")
-# 
-# # Remove OTUs with less than two occurences across all sites
-# cyanos <- cyanos[, which(colSums(cyanos) >= 2)]
-# phytos <- phytos[, which(colSums(phytos) >= 2)]
-# 
-# # Remove sites where we have low coverage
-# cyanos <- cyanos[-which(coverage < 10000), ]
-# phytos <- phytos[-which(coverage < 10000), ]
-# 
-# # Remove Non Intersecting Sites
-# ratio.sites <- intersect(intersect(rownames(cyanos), rownames(phytos)), rownames(OTUs))
-# cyanos <- cyanos[ratio.sites, ]
-# phytos <- phytos[ratio.sites, ]
-# heteros <- OTUs[ratio.sites, ]
-# design.int <- design[ratio.sites, ]
-# 
-# # Remove RNA Sites
-# DNA.samps <- which(design.int$molecule == "DNA")
-# cyanos <- cyanos[DNA.samps, ]
-# phytos <- phytos[DNA.samps, ]
-# heteros <- OTUs[DNA.samps, ]
-# design.dna <- design[DNA.samps, ]
-# 
-# # Observed Richness
-# S.cyano <- rowSums((cyanos > 0) * 1)
-# S.phyto <- rowSums((phytos > 0) * 1)
-# S.hetero <- rowSums((heteros > 0) * 1)
-# 
-# N.cyano <- rowSums(cyanos)
-# N.phyto <- rowSums(phytos)
-# N.hetero <- rowSums(heteros) - rowSums(cyanos)
-#                     
-# HtoC <- N.hetero / N.cyano
-# HtoP <- N.hetero / N.phyto
-# HtoBoth <- N.hetero / (N.cyano + N.phyto)
-# 
-# data_frame(S.cyano, S.phyto, S.hetero, 
-#            metric = "richness", 
-#            location = design.dna$distance) %>% 
-#   gather(group, richness, -metric, -location) %>% 
-#   filter(!is.na(location)) %>% 
-#   ggplot(aes(x = location, y = richness, color = group)) +
-#   geom_jitter(alpha = 0.5) +
-#   geom_smooth() +
-#   scale_y_log10() +
-#   scale_x_reverse()
-# 
-# data_frame(N.cyano, N.phyto, N.hetero, 
-#            metric = "abundance", 
-#            location = design.dna$distance) %>% 
-#   gather(group, abundance, -metric, -location) %>% 
-#   filter(!is.na(location)) %>% 
-#   ggplot(aes(x = location, y = abundance, color = group)) +
-#   geom_jitter(alpha = 0.5) +
-#   geom_smooth() +
-#   scale_y_log10() +
-#   scale_x_reverse()
-# 
-# data_frame(HtoC, HtoP, HtoBoth, 
-#            metric = "ratio", 
-#            location = design.dna$distance) %>% 
-#   gather(group, ratio, -metric, -location) %>% 
-#   filter(!is.na(location)) %>% 
-#   ggplot(aes(x = location, y = ratio, color = group)) +
-#   geom_jitter(alpha = 0.5) +
-#   geom_smooth() +
-#   scale_y_log10() +
-#   scale_x_reverse()
-```
-
-# Old Figures
-## Figure 2: Bacterial Richness and Terrestrial Influence Across Gradient
-```{r}
-# # Set Plot Symbol Parameters
-# mol <- rep(NA, length(lake$molecule))
-#   for (i in 1:length(mol)){
-#     if (lake$molecule[i] == "DNA"){
-#       mol[i] <- 22
-#     } else {
-#       mol[i] <- 24
-#     }
-#   }
-# cols <- rep(NA, length(lake$molecule))
-#   for (i in 1:length(cols)){
-#     if (lake$molecule[i] == "DNA"){
-#       cols[i] <- "gray15"
-#     } else {
-#       cols[i] <- "gray75"
-#     }
-#   }
-# 
-# # Initial Plot
-# png(filename="../figures/Figure2.png",
-#     width = 1200, height =1200, res = 96*2)
-# 
-# par(mfrow = c(1,1), mar = c(0, 5, 0, 1) + 0.5, oma = c(4, 2, 0, 0) + 0.5)
-# bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
-# 
-# # Richness Across Gradient Plot
-# plot(lake$S.obs ~ lake$distance, col= "black", bg = cols, pch=mol, las = 1,
-#      xlim = c(400, -15), ylim = c(0, 2750), cex = 1.5, 
-#      xlab="", ylab="", xaxt="n")
-# 
-# #   matlines(lake$distance[lake$molecule == "DNA"], conf95.rich[lake$molecule == "DNA", ],
-# #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# #   matlines(lake$distance[lake$molecule == "RNA"], conf95.rich[lake$molecule == "RNA", ],
-# #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# 
-# # Add multiple regression lines
-# clip(400, 0, 0, 2800)
-# abline(a = DNA.int.3a, b = DNA.slp.3a, col = "black", lwd = 2.5, lty = 6)
-# abline(a = RNA.int.3a, b = RNA.slp.3a, col = "black", lwd = 2.5, lty = 4)
-# text(40, 1500, labels = bquote(italic(R)^2 == .(D1.R2)), cex = 1)
-# 
-# axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1,
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400)) 
-# axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))     
-# axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# 
-# mtext("Richness\n(S)" , side = 2, line = 4, cex=1.5)
-# 
-# legend("topright", legend = levels(lake$molecule), pch=c(22, 24), 
-#        pt.bg = c("gray15", "gray75"), bty='n', cex = 1, ncol=2)
-# 
-# box(lwd=2)
-# 
-# # Terrestrial Influence Plot
-# 
-# plot(UL.sim$bray.mean ~ UL.sim$distance, col= "black", bg = cols, pch=mol, 
-#      las = 1, xlim = c(400, -15), ylim = c(0, 0.25), cex = 1.5, 
-#      xlab="", ylab="", xaxt="n")
-# 
-# #   matlines(lake$distance[lake$molecule == "DNA"], conf95.terr[lake$molecule == "DNA", ],
-# #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# #   matlines(lake$distance[lake$molecule == "RNA"], conf95.terr[lake$molecule == "RNA", ],
-# #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# 
-# # Add multiple regression lines
-# clip(400, 0, 0, 0.27)
-# abline(a = DNA.int.3b, b = DNA.slp.3b, col = "black", lwd = 2.5, lty = 6)
-# abline(a = RNA.int.3b, b = RNA.slp.3b, col = "black", lwd = 2.5, lty = 4)
-# text(40, 0.125, labels = bquote(italic(R)^2 == .(D2.R2)), cex = 1)
-# 
-# axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1,
-#      labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1, 
-#      at = c(400, 300, 200, 100, 000))
-# axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(400, 300, 200, 100, 000))
-# axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(400, 300, 200, 100, 000))
-# axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# 
-# mtext("Terrestrial\nInfluence" , side = 2, line = 4, cex=1.5)
-# mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-# 
-# # legend("topright", legend = levels(UL.sim$molecule), pch=c(22, 24), 
-# #        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
-# 
-# box(lwd=2)
-# 
-# # # Lake Influence Plot
-# # # plot(UL.sim2$DNA ~ UL.sim2$distance, col= "black", bg = cols, pch=mol, las = 1,
-# # #      xlim = c(400, 0), ylim = c(0, 1), cex = 1.5, 
-# # #      xlab="", ylab="")
-# # 
-# # #   matlines(lake$distance[lake$molecule == "DNA"], conf95.lake[lake$molecule == "DNA", ],
-# # #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# # #   matlines(lake$distance[lake$molecule == "RNA"], conf95.lake[lake$molecule == "RNA", ],
-# # #          lty = c(1, 0, 0), col=c("black", "gray50", "gray50"), lwd=c(2, 1, 1))
-# # 
-# # # Add multiple regression lines
-# # clip(400, 0, 0, 1)
-# # abline(a = DNA.int.3c, b = DNA.slp.3c, col = "black", lwd = 2.5, lty = 6)
-# # 
-# # clip(400, 0, 0, 1)
-# # abline(a = RNA.int.3c, b = RNA.slp.3c, col = "black", lwd = 2.5, lty = 4)
-# # 
-# # axis(side = 1, lwd.ticks = 2, cex.axis = 1, las = 1)
-# # axis(side = 2, lwd.ticks = 2, cex.axis = 1, las = 1)
-# # axis(side = 3, lwd.ticks = 2, tck=-0.05, labels = F,  cex.axis = 2, las = 1)  
-# # axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# # axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)         
-# # axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# # axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)   
-# # axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# # 
-# # mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-# # mtext("Lake\nInfluence", side = 2, line = 4, cex=1.5)
-# # 
-# # legend("topleft", legend = levels(UL.sim$molecule), pch=c(22, 24), 
-# #        pt.bg = c("gray15", "gray75"), bty='n', cex = 1.25)
-# # 
-# # box(lwd=2)
-# 
-# # Close Plot Defice
-# dev.off()
-# graphics.off() 
-# par(opar)
-```
-## Figure 3: Soil Organisms Plot
-```{r}
-# # Initial Plot
-# png(filename="../figures/Figure3.png",
-#     width = 1200, height =1200, res = 96*2)
-# 
-# par(mfrow = c(1,1), mar = c(0, 7, 0, 1) + 0.5, oma = c(4, 2, 0, 0) + 0.5)
-# bar.layout <- layout(rbind(1, 2), height = c(4, 4)) 
-# 
-# # Soil OTU Richness Across Gradient Plot
-# plot(terr.rich.log ~ design.dna$distance, col= "black", pch=22, las = 1,
-#      xlim = c(400, -15), ylim = c(1.5, 3.5), cex = 1.5,  
-#      xlab="", ylab="", xaxt="n", yaxt="n")
-# 
-# clip(0, 375, 1.5, 3.4)
-# abline(a = T1.int, b = T1.slp, col = "black", lwd = 2.5, lty = 6)
-# text(40, 3, labels = bquote(italic(R)^2 == .(T1.R2)), cex = 1)
-# 
-# axis(side = 1, lwd.ticks = 2, tck = -0.02, labels = F, cex.axis = 1, las = 1)
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-# axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 2, lwd.ticks = 2, at = c(2, 3), labels = c(10^2, 10^3), cex.axis = 1, las = 1)
-# axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(10, 100, by = 10), 
-#      seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
-# axis(side = 2, lwd.ticks = 2, at = c(2, 3), tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(10, 100, by = 10), 
-#      seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)    
-# axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 4, lwd.ticks = 2, at = c(2, 3), tck=0.02, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(10, 100, by = 10), 
-#      seq(100, 1000, by = 100), seq(1000, 10000, by = 1000))), labels = F, cex.axis = 1, las = 1)
-# 
-# mtext("Transient\nRichness\n(S)" , side = 2, line = 4, cex=1.5)
-# box(lwd=2)
-# 
-# # Soil OTU Relative Abundance Across Gradient Plot
-# plot(terr.REL.log ~ design.dna$distance, col= "black", pch=22, las = 1,
-#      xlim = c(400, -15), ylim = c(-2.5, -.5), cex = 1.5, 
-#      xlab="", ylab="", xaxt="n", yaxt="n")
-# 
-# clip(0, 375, -2.5, -0.5)
-# abline(a = T2.int, b = T2.slp, col = "black", lwd = 2.5, lty = 6)
-# text(40, -1, labels = bquote(italic(R)^2 == .(T2.R2)), cex = 1)
-# 
-#   axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
-#   axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-#   axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1)
-#   axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-#   axis(side = 2, lwd.ticks = 2, at = c(-2, -1), labels = c(0.01, 0.1), cex.axis = 1, las = 1)
-#   axis(side = 2, lwd.ticks = 2, tck = -0.02, at = log10(c(seq(0.001, 0.01, by = 0.001), 
-#        seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)
-#   axis(side = 2, lwd.ticks = 2, at = c(-2, -1), tck=0.01, labels = F,  cex.axis = 2, las = 1)
-#   axis(side = 2, lwd.ticks = 2, tck = 0.005, at = log10(c(seq(0.001, 0.01, by = 0.001), 
-#        seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)    
-#   axis(side = 4, lwd.ticks = 2, at = c(-2, -1), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-#   axis(side = 4, lwd.ticks = 2, at = c(-2, -1), tck=0.02, labels = F,  cex.axis = 2, las = 1)
-#   axis(side = 4, lwd.ticks = 2, tck = 0.01, at = log10(c(seq(0.001, 0.01, by = 0.001), 
-#        seq(0.01, 0.1, by = 0.01), seq(0.1, 1, by = 0.1))), labels = F, cex.axis = 1, las = 1)
-# 
-# mtext("Distance (m)" , side = 1, line = 3, cex=1.5)
-# mtext("Transient\nRelative\nAbundance", side = 2, line = 4, cex=1.5)
-# 
-# box(lwd=2)  
-#   
-# 
-# # Close Plot Defice
-# dev.off()
-# graphics.off() 
-```
-
-## Core
-## Model Fit
-```{r}
-# 
-# terrestrial <- data.frame(in.lake.core.soil.REL, design.dna$distance)
-# terrestrial$distance[1] <- 10^-8
-# colnames(terrestrial) <- c("t.rel.abund", "distance")
-# 
-# mm <- function(x,V,K){
-#   (V * x)/(K + x)
-# }
-# 
-# fit.t.1 <- lm(terrestrial$t.rel.abund ~ terrestrial$distance)
-# fit.t.2 <- lm(terrestrial$t.rel.abund ~ poly(terrestrial$distance,2,raw=TRUE))
-# fit.t.3 <- lm(terrestrial$t.rel.abund ~ poly(terrestrial$distance,3,raw=TRUE))
-# fit.t.mm <- nls(t.rel.abund ~ mm((400-distance[1:15]), max, halfsat), data = terrestrial[1:15,], start = list(max = 0.75, halfsat = (400-325)), trace = T)
-# summary(fit.t.mm)$coefficients
-# 
-# lake <- data.frame(in.lake.core.water.REL, design.dna$distance)
-# lake$distance[1] <- 10^-8
-# colnames(lake) <- c("l.rel.abund", "distance")
-# 
-# fit.l.1 <- lm(lake$l.rel.abund ~ lake$distance)
-# fit.l.2 <- lm(lake$l.rel.abund ~ poly(lake$distance,2,raw=TRUE))
-# fit.l.3 <- lm(lake$l.rel.abund ~ poly(lake$distance,3,raw=TRUE))
-# fit.l.mm <- nls(l.rel.abund ~ mm((400-distance), max, halfsat), data = lake[1:15,], start = list(max = 0.20, halfsat = (400-300)), trace = T)
-# #fit.l.pow = nls(l.rel.abund ~ I(distance^power), data=lake, start=list(power = -0.06590247), trace = T)
-```
-
-## Figure 4: Plot Core Community
-```{r}
-# png(filename="../figures/Figure4.png",
-#     width = 1000, height = 1000, res = 96*2)
-# par(mar = c(5,7,4,1))
-# plot(in.lake.core.soil.REL ~ design.dna$distance, 
-#      ylim = c(0, 1), xlim = c(400, -15), pch = 22, bg = "black", 
-#      ylab = "", xlab = "", xaxt = "n", yaxt = "n", cex = 2, cex.lab = 2)
-# points(in.lake.core.water.REL ~ design.dna$distance, cex = 2, pch = 22)
-# mtext("Distance (m)", side = 1, line = 3, cex = 1.5)
-# mtext("Relative abundance of \ncore microbiome", side = 2, line = 3, cex = 1.5)
-# axis(side = 1, lwd.ticks = 2, labels = T, cex.axis = 1, las = 1)
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1) 
-# axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 2, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), cex.axis = 1, las = 1)
-# axis(side = 2, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 4, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), tck=-0.01, labels = F,  cex.axis = 2, las = 1)
-# axis(side = 4, lwd.ticks = 2, at = c(0, .25, .5, .75, 1), tck=0.01, labels = F,  cex.axis = 2, las = 1)
-# 
-# legend("topright", c("Terrestrial", "Lake"), col = c("black", "black"),
-#          pt.bg = c("black", "white"), pch = 22, cex = 1.25, bty = "n")
-# 
-# box(lwd=2)
-# 
-# x <- lake$distance[1:15]
-# 
-# #lines(terrestrial$distance, predict(fit.t.2, data.frame(x=x)))
-# 
-# #lines(lake$distance, predict(fit.l.2, data.frame(x=x)))
-# 
-# #power <- round(summary(fit.t.pow)$coefficients[1], 3)
-# #power.se <- round(summary(m)$coefficients[2], 3)
-# 
-# lines(x, predict(fit.t.mm, list(x = x)), lwd = 2.5, lty = 6)
-# lines(x, predict(fit.l.mm, list(x = x)), lwd = 2.5, lty = 6)
-# 
-# dev.off()
-# graphics.off() 
-```
-
-## Figure S2: chemical and physical variables along reservoir gradient
-```{r }
-# 
-# # Start Plotting File
-# png(filename="../figures/FigureS2.png",
-#     width = 1500, height = 1200, res = 96*2)
-# 
-# par(mfrow = c(2,2))
-# par(mar = c(5, 6, 1, 2) + 0.5)
-# 
-# # Total Phosphorus
-# TP <- plot(rev(env.dat$dist.dam), env.dat$TP, 
-#      ylab = "", xlab = "", cex.lab = 2, las = 1,
-#      ylim = c(0,140), xlim = c(-15, 400),
-#      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-#      yaxt = "n", xaxt = "n")
-# box(lwd = 2)
-# 
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("0", "40", "80", "120"), at = c(0, 40, 80, 120))
-#                               
-# axis(side = 1, lwd.ticks = 2,  labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
-#    #labels = c("0", "100", "200", "300", "400"), 
-#    at = c(0, 100, 200, 300, 400))
-# 
-# 
-# mtext(expression(paste('Total Phosphorus (',mu,'g P L'^-1*')')), side = 2, line = 4, cex = 1)
-# 
-# par(mar = c(5, 5, 1, 3) + 0.5)
-# 
-# # Chlorophyll
-# chla <- plot(rev(env.dat$dist.dam), env.dat$chla, 
-#      ylab = "", xlab = "", cex.lab = 2, las = 1,
-#      ylim = c(0,30), xlim = c(-15, 400),
-#      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-#      yaxt = "n", xaxt = "n")
-# box(lwd = 2)
-# 
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("0", "10", "20", "30"), at = c(0, 10, 20, 30))
-# 
-# axis(side = 1, lwd.ticks = 2, labels = F, cex.axis = 2, las = 1, mgp = c(3, 1.5, 0),
-#    #labels = c("0", "100", "200", "300", "400"), 
-#    at = c(0, 100, 200, 300, 400))
-# 
-# mtext(expression(paste('Chlorophyll a (',mu,'g L'^-1*')')), side = 2, line = 4, cex = 1)
-# 
-# par(mar = c(5, 6, 0, 2) + 0.5)
-# #Dissolved Oxygen
-# plot(rev(env.dat$dist.dam), env.dat$DO, 
-#      ylab = "", xlab = "", cex.lab = 2, las = 1,
-#      ylim = c(5,10), xlim = c(-15, 400),
-#      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-#      yaxt = "n", xaxt = "n")
-# box(lwd = 2)
-# 
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("5", "7.5", "10"), at = c(5,7.5, 10))
-# 
-# axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
-#    labels = c("0", "100", "200", "300", "400"), 
-#    at = rev(c(0, 100, 200, 300, 400)))
-# 
-# mtext(expression(paste('Dissolved Oxygen (mg L'^-1*')')), side = 2, line = 4, cex = 1)
-# 
-# text(x = 35, y = 5.1, "STREAM", font = 2)
-# text(x = 375, y = 5.1, "DAM", font = 2)
-# 
-# 
-# #pH
-# par(mar = c(5, 5, 0, 3) + 0.5)
-# plot(rev(env.dat$dist.dam), env.dat$pH, 
-#      ylab = "", xlab = "", cex.lab = 2, las = 1,
-#      ylim = c(8,9), xlim = c(-15, 400),
-#      pch = 22, cex = 2, bg = "white", col = "black", lwd = 2,
-#      yaxt = "n", xaxt = "n")
-# box(lwd = 2)
-# 
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("8", "8.5","9"), at = c(8, 8.5, 9))
-# 
-# axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, mgp = c(3, 1.5, 0),
-#    labels = c("0", "100", "200", "300", "400"), 
-#    at = rev(c(0, 100, 200, 300, 400)))
-# 
-# mtext("pH", side = 2, line = 4, cex = 1)
-# 
-# text(x = 35, y = 8.02, "STREAM", font = 2)
-# text(x = 375, y = 8.02, "DAM", font = 2)
-# 
-# dev.off() # this writes plot to folder
-# graphics.off() # shuts down open devices
-
-
-
-```
-
-# Figure 1: Microbial Processes Across the Gradient
-```{r results='hide'}
-# png(filename="../figures/Figure1.png",
-#     width = 1200, height =1200, res = 96*2)
-# par(mfrow = c(1,1), mar = c(0, 5, 0, 1) + 0.5, oma = c(6, 2, 0, 0) + 0.5)
-# bar.layout <- layout(rbind(1, 2, 3), height = c(3, 3, 3)) 
-# #layout.show(bar.layout)
-# 
-# # Baterial Producivity (BP)
-# plot(metab$dist, metab$BP, ylab = "", xlab = "", pch = 22, ylim = c(0, 2), 
-#      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-#      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-# 
-# axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("0.0", "1.0", "2.0"), at = c(0, 1.0, 2.0))
-# axis(side = 3, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 1.0, 2.0))
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#      at = c(0, 100, 200, 300, 400)) 
-# axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#     at = c(0, 1.0, 2.0))
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))     
-# axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 1.0, 2.0))
-# 
-# box(lwd = 2)
-# 
-# mtext(expression(paste('BP (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
-# 
-# # Quadratic regression for BP
-# dist <- metab$dist
-# dist2 <- metab$dist^2
-# BP.fit <- lm(metab$BP ~ dist + dist2)
-# BP.R2 <- round(summary(BP.fit)$r.squared, 2)
-# dist.vals <- seq(0, 375, 25)
-# BP.pred <- predict(BP.fit,list(dist = dist.vals, dist2 = dist.vals^2))
-# lines(dist.vals, BP.pred, col = "black", lwd = 2.5, lty = 6)
-# text(40, 1.8, labels = bquote(italic(R)^2 == .(BP.R2)), cex = 1.5)
-# 
-# # Bacterial Respiration (BR)
-# plot(metab$dist, metab$BR, ylab = "", xlab = "", pch = 22, ylim = c(0, 4), 
-#      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-#      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-# 
-# axis(side = 1, lwd.ticks = 2, tck=-0.02, labels = F, cex.axis = 1, las = 1, 
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("0.0", "2.0", "4.0"), at = c(0, 2, 4))
-# axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 2, 4))
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#      at = c(0, 100, 200, 300, 400)) 
-# axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#     at = c(0, 2, 4))
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))     
-# axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 2, 4))
-# 
-# box(lwd = 2)
-# 
-# mtext(expression(paste('BR (', mu ,'M C h'^-1* ')')), side = 2, line = 4, cex = 1.25)
-# 
-# # Simple linear regression for BR
-# BR.fit <- lm(metab$BR ~ metab$dist)
-# BR.R2 <- round(summary(BR.fit)$r.squared, 2)
-# BR.int <- BR.fit$coefficients[1]
-# BR.slp <- BR.fit$coefficients[2]
-# clip(0, 375, 0, 4.1)
-# abline(a = BR.int, b = BR.slp, col = "black", lwd = 2.5, lty = 6)
-# text(40, 3.75, labels = bquote(italic(R)^2 == .(BR.R2)), cex = 1.5)
-# 
-# # Bacterial Growth Efficiency
-# plot(metab$dist, metab$BGE, ylab = "", xlab = "", pch = 22, ylim = c(0, 0.6), 
-#      xlim = c(400, -15), cex = 2, bg = "white", col = "black", cex.lab = 2, 
-#      las = 1, lwd = 2, yaxt = "n", xaxt = "n")
-# 
-# axis(side = 1, lwd.ticks = 2, cex.axis = 1.5, las = 1, 
-#      labels = c("400", "300", "200", "100", "0"), at = c(400, 300, 200, 100, 000))
-# axis(side = 2, lwd.ticks = 2, cex.axis = 1.5, las = 1,
-#     labels = c("0.0", "0.3", "0.6"), at = c(0, 0.3, 0.6))
-# axis(side = 3, lwd.ticks = 2, tck=-0.02, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))
-# axis(side = 4, lwd.ticks = 2, tck=-0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 0.3, 0.6))
-# axis(side = 1, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#      at = c(0, 100, 200, 300, 400)) 
-# axis(side = 2, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#     at = c(0, 0.3, 0.6))
-# axis(side = 3, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1,
-#      at = c(0, 100, 200, 300, 400))     
-# axis(side = 4, lwd.ticks = 2, tck=0.01, labels = F,  cex.axis = 2, las = 1, 
-#    at = c(0, 0.3, 0.6))
-# 
-# box(lwd = 2)
-# 
-# mtext("BGE", side = 2, line = 4, cex = 1.25)
-# mtext("Distance (m)", side = 1, line = 4, cex = 1.25)
-# 
-# # Simple linear regression for BGE
-# BGE.fit <- lm(metab$BGE ~ metab$dist)
-# BGE.R2 <- round(summary(BGE.fit)$r.squared, 2)
-# BGE.int <- BGE.fit$coefficients[1]
-# BGE.slp <- BGE.fit$coefficients[2]
-# clip(0, 375, 0, 0.58)
-# abline(a = BGE.int, b = BGE.slp, col = "black", lwd = 2.5, lty = 6)
-# text(40, 0.535, labels = bquote(italic(R)^2 == .(BGE.R2)), cex = 1.5)
-# 
-# dev.off() # this writes plot to folder
-# graphics.off() # shuts down open devices
-# par(opar)
-
-```
-
-```{r fig.width=4, fig.height=5,echo=FALSE,fig.cap="Microbial Processes Along Gradient"}
-# img <- readPNG("../figures/Figure1.png")
-# grid.raster(img)
 ```
 
 

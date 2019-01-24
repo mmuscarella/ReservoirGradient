@@ -1,6 +1,6 @@
 ---
-title: "Reservoir Gradient"
-author: "Jay T. Lennon, Megan L. Larsen, Nathan I. Wisnoski, & Mario E. Muscarella"
+title: "Dormancy and dispersal structure bacterial communities across ecosystem boundaries"
+author: "Nathan I. Wisnoski, Mario E. Muscarella, Megan L. Larsen, and Jay T. Lennon"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 header-includes:
    - \usepackage{array}
@@ -8,46 +8,52 @@ header-includes:
 output: 
   pdf_document:
     fig_caption: true
+    keep_tex: true
 ---
 
-Effects of metacommunity processes on microbial assembly at the terrestrial-aquatic interface
 
 # Initial Setup
-```{r results='hide', message=FALSE}
-rm(list=ls())
-getwd()
-setwd("./analyses")
-opar <- par(no.readonly = TRUE)  # Saves plot defaults
 
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  fig.width = 6, 
+  fig.asp = .618, 
+  out.width = "70%", 
+  fig.align = "center",
+  message = FALSE)
+```
+
+First, we'll load the packages we'll need for the analysis, as well as some other functions.
+```{r packages, results='hide'}
 # Import Required Packages
-require("png")
-require("grid")
-require("tidyverse")   
-# require("akima")
-# require("maps")
-# require("rgdal")
-# require("raster")
-# require("OpenMx")
-# require("ggmap")
-# require("raster") 
-# require("gridExtra")
-require("vegan")
-require("xtable")
-require("viridis")
-require("cowplot")
-require("adespatial")
-require("ggrepel")
-require("gganimate")
-require("maps")
-require("rgdal")
-require("iNEXT")
-require("officer")
-require("flextable")
+library("png")
+library("grid")
+library("tidyverse")   
+library("vegan")
+library("xtable")
+library("viridis")
+library("cowplot")
+library("adespatial")
+library("ggrepel")
+library("gganimate")
+library("maps")
+library("rgdal")
+library("iNEXT")
+library("officer")
+library("flextable") #must have gdtools installed also
+library("broom")
+library("ggpmisc")
+library("pander")
 
+source("bin/mothur_tools.R")
+se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
+```
 
-my.cols <- viridis(2, begin = .3, end = 0.8)
+Next, we'll set the aesthetics of the figures we will produce. 
+```{r figure_setup}
 my.cols <- RColorBrewer::brewer.pal(n = 4, name = "Greys")[3:4]
 
+# Set theme for figures in the paper
 theme_set(theme_classic() + 
   theme(axis.title = element_text(size = 20),
         axis.title.x = element_text(margin = margin(t = 15, b = 15)),
@@ -66,24 +72,18 @@ theme_set(theme_classic() +
         legend.title = element_blank(),
         legend.text = element_text(size = 16)
         ))
-
 ```
 
-## Load required R packages and tools
-```{r results = 'hide'}
-source("../bin/mothur_tools.R")
-se <- function(x, ...){sd(x, na.rm = TRUE)/sqrt(length(na.omit(x)))}
-```
-
-## Import Shared and Design Files
+## Import Data
+Here, we read in the processed sequence files from mothur (shared and taxonomy) and a design of the sampling. We also load in the environmental data. We then remove the mock community from the dataset and ensure the the design and OTU table are aligned by row.
 ```{r}
 # Define Inputs
 # Design = general design file for experiment
 # shared = OTU table from mothur with sequence similarity clustering
 # Taxonomy = Taxonomic information for each OTU
-design <- "../data/UL.design.txt"
-shared <- "../data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.shared"
-taxon  <- "../data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.0.03.cons.taxonomy"
+design <- "data/UL.design.txt"
+shared <- "data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.shared"
+taxon  <- "data/ul_resgrad.trim.contigs.good.unique.good.filter.unique.precluster.pick.pick.pick.opti_mcc.0.03.cons.taxonomy"
 
 # Import Design
 design <- read.delim(design, header=T, row.names=1)
@@ -95,7 +95,7 @@ OTUs <- read.otu(shared = shared, cutoff = "0.03")    # 97% Similarity
 OTU.tax <- read.tax(taxonomy = taxon, format = "rdp")
 
 # Load environmental data
-env.dat <- read.csv("../data/ResGrad_EnvDat.csv", header = TRUE)
+env.dat <- read.csv("data/ResGrad_EnvDat.csv", header = TRUE)
 env.dat <- env.dat[-16,]
 
 # Subset to just the reservoir gradient sites
@@ -106,19 +106,14 @@ OTUs <- OTUs[-which(rownames(OTUs) == "RGMockComm"),]
 OTUs <- OTUs[match(rownames(design), rownames(OTUs)),]
 ```
 
-## Data Transformations
+## Clean and transform OTU table
+Here, we remove OTUs with low incidence across sites, we remove any samples with low coverage, and we standardize the OTU table by log-transforming the abundances and relativizing by site. 
 ```{r}
 # Remove OTUs with less than two occurences across all sites
 OTUs <- OTUs[, which(colSums(OTUs) >= 2)]
 
 # Sequencing Coverage
 coverage <- rowSums(OTUs)
-
-# Good's Coverage
-goods <- function(x = ""){
-  1 - (sum(x == 1) / rowSums(x))
-}
-goods.c <- goods(OTUs)
 
 # Remove Low Coverage Samples (This code removes two sites: Site 5DNA, Site 6cDNA)
 lows <- which(coverage < 10000)
@@ -135,111 +130,31 @@ OTUsREL <- decostand(OTUs, method = "total")
 OTUsREL.log <- decostand(OTUs, method = "log")
 ```
 
-# Figure 1: Map of University Lake (reservoir transect)
-```{r results='hide', fig.keep='none', warning=FALSE}
-# ggplot theme
-theme_maps <- function(base_size = 12, base_family = "Arial"){
-  theme_bw(base_size = base_size, base_family = base_family) %+replace%
-    theme(panel.background = element_rect(fill = "white", color = "black", size = 1),
-          #panel.border = element_rect(color = "black"),
-        #panel.margin = unit(1,1,1,1),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        axis.ticks = element_blank(),
-        axis.text = element_blank(),
-        axis.title = element_blank(),
-        legend.position = c(0.9,0.25)
-        #,axis.title.x = element_blank(),axis.title.y = element_blank()
-    )
-}
 
-map.colors <- viridis(100)
-
-# get shape files 
-## for map inset
-usa <- map_data("usa")
-IN <- map_data("state", region = "Indiana")
-
-## for main plot
-ul <- readOGR("../maps","UniversityLakePoly")
-#summary(ul) # Check projection and and datum
-#ul <- spTransform(ul, CRS("+proj=longlat +datum=WGS84")) # transform if necessary
-ul <- fortify(ul) # raster image for plotting with ggplot2
-
-# If using google map as baselayer
-#ul.coords <- c(lon = -86.503087, lat = 39.188686)
-#ul.map <- get_map(location = ul.coords, 
-#                  zoom = 17, #maptype = "terrain", 
-#                  source = "google", color = "bw")
-#base.map <- ggmap(ul.map, extent = "device", legend = "topleft")
-
-# Main Map
-main.map <- ggplot(aes(long,lat), data = env.dat) + 
-  geom_polygon(fill = "skyblue", alpha = 0.7, size = 0.5, color = 'black', data = ul, alpha = 1) +
-  geom_point(size = 6, shape = 20) +
-  labs(x = "Longitude (deg.)", y = "Latitude (deg.)") +
-  # annotate("text", x = -86.5010, y = 39.18943, 
-  #          label = "DAM", fontface = "bold") +
-  annotate("text", x = -86.503, y = 39.1894, angle = 23, size = 6.8,
-         label = "Soil %->% Riverine %->% Lacustrine %->% Dam", parse = TRUE) +
-  scale_y_continuous(limits = c(39.1868, 39.190))
-print(main.map)
-
-# Inset Map
-inset <- ggplot() +
-  theme_maps() +
-  theme(axis.text = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.ticks.x = element_blank(),
-        panel.border = element_rect(color = "black", fill = NA, size = .25)) +
-  labs(x = NULL, y = NULL)
-
-inset <- inset + geom_map(data = usa, map = usa,
-                    aes(x = long, y = lat, map_id = region),
-                    color = "black", fill = "#e7e7e7", alpha = 0.8, size = 0.15)
-
-inset <- inset + geom_map(data = IN, map = IN,
-                    aes(x = long, y=lat, map_id = region),
-                    color = "black", fill = map.colors[80], alpha = 0.8, size = 0.15)
-
-inset <- inset + geom_point(aes(x = -86.503087, y = 39.188686), color = "black", shape = 18, size = 2)
-
-print(inset)
-
-
-# Start Plotting File
-png(filename="../figures/01_map.png",
-    width = 7, height = 6, units = "in", res = 400)
-
-grid.newpage()
-v1 <- viewport(width = 1, height = 1, x = 0.5, y = 0.5) #plot area for the main map
-v2 <- viewport(width = 0.4, height = 0.3, x = 0.78, y = 0.33) #plot area for the inset map
-print(main.map,vp = v1) 
-print(inset,vp = v2)
-
-dev.off() # this writes plot to folder
-graphics.off() # shuts down open devices
-img <- readPNG("../figures/01_map.png")
-grid.raster(img)
-```
-
-# Plot environmental gradients
-```{r}
+# Reservoir environmental gradients
+Just to see if there are any strong underlying resource or nutrient gradients in the reservoir, we'll plot them along the distance of the reservoir.
+```{r env_plot, fig.asp=1/.618}
 env.dat %>% select(dist.dam, DO, pH, TP, color, chla) %>% 
   gather(variable, value, -dist.dam) %>% 
   ggplot(aes(x = dist.dam, y = value)) + 
   geom_point() + 
-  geom_smooth(method = "lm") + 
+  geom_smooth(method = "lm", color = "black") + 
   facet_grid(variable ~., scales = "free") + 
   theme(strip.background = element_blank(), strip.text = element_text(size = 14)) + 
-  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+  labs(x = "Reservoir Transect (m)",
+       y = "Value") +
   scale_x_reverse()
 ```
 
+So, there are some weak gradients, but nothing too prevailing. 
 
 # Analyze Diversity 
-## Calculate Alpha Diversity
-```{r}
+Now, we will analyze the bacterial diversity in the reservoir and nearby soils to figure out how well they support different mechanisms of community assembly. 
+
+## How does \(\alpha\)-diversity vary along the reservoir?
+
+First, we use the method of rarefaction and extrapolation developed by Chao et al. in the iNEXT package.
+```{r rarefaction-extrapolation}
 # Observed Richness
 S.obs <- rowSums((OTUs > 0) * 1)
 
@@ -254,44 +169,96 @@ SimpE <- function(x = ""){
 simpsE <- round(apply(OTUs, 1, SimpE), 3)
 shan <- diversity(OTUs, index = "shannon")
 exp.shan <- exp(shan)
+alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
+
 
 # # estimate asymptotic richness
 # divestim <- iNEXT(t(OTUs), datatype = "abundance", nboot = 999)
 # saveRDS(divestim, file = "intermediate-data/inext-output-999boots.rda")
 divestim <- read_rds("intermediate-data/inext-output-999boots.rda")
-ggiNEXT(divestim) + 
-  theme_minimal() +
-  scale_x_continuous(labels = scales::comma) + 
-  ggsave("../figures/rareextrapcurves.png", dpi = 500, 
-         width = 7, height = 7/1.618, units = "in", scale = 1.2)
+divestim.df <- fortify(divestim) %>% 
+  mutate(habitat = str_to_title(design[as.character(site),"type"]))
 
-alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
+divestim.df %>% 
+  ggplot(aes(x = x, y = y, 
+             ymin = y.lwr, ymax = y.upr, 
+             color = habitat, fill = habitat, group = site)) +
+  geom_ribbon(data=subset(divestim.df, method == "extrapolated"), alpha = 0.3) +
+  geom_line(data=subset(divestim.df, method == "interpolated"), size = 1, alpha = .8) +
+  geom_line(alpha = 1, linetype = "dashed") +
+  scale_x_continuous(labels = scales::comma) +
+  labs(x = "Sample Size", y = "Species Diversity") +
+  theme(legend.position = "top") +
+  scale_color_grey(end = .7) +
+  scale_fill_grey(end = .7)
+```
 
+Next, we'll extract the estimates for the Hill numbers at different levels of q, which differentially weight common versus rare species.
+```{r hill_numbers, fig.asp=1/.618}
 hill.estim <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
   left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs")) %>% 
   select(Site, rowname, station, molecule, type, distance) %>% 
   left_join(divestim$AsyEst, by = "Site")
 
+hill.water <- as_tibble(hill.estim) %>% filter(type == "water")
+hill.water.rich <- subset(hill.water, Diversity == "Species richness")
+hill.water.shan <- subset(hill.water, Diversity == "Shannon diversity")
+hill.water.simp <- subset(hill.water, Diversity == "Simpson diversity")
+
+hill.water.mod.rich <- lm(Estimator ~ distance * molecule, data = hill.water.rich)
+hill.water.mod.shan <- lm(Estimator ~ distance * molecule, data = hill.water.shan)
+hill.water.mod.simp <- lm(Estimator ~ distance * molecule, data = hill.water.simp)
+
+summary(hill.water.mod.rich)
+summary(hill.water.mod.shan)
+summary(hill.water.mod.simp)
+
+hill.water.mods <- as_tibble(rbind.data.frame(
+  tidy(hill.water.mod.rich) %>% add_column(Diversity = "Species richness"),
+  tidy(hill.water.mod.shan) %>% add_column(Diversity = "Shannon diversity"),
+  tidy(hill.water.mod.simp) %>% add_column(Diversity = "Simpson diversity")
+))
+
+# Summary table of the model results. 
+hill.water.mods %>% 
+  group_by(Diversity) %>% 
+  rename("Term" = term, 
+         "Estimate" = estimate, 
+         "Std. Error" = std.error, 
+         "Statistic" = statistic, 
+         "p-value" = p.value) %>% 
+  filter(Term != "(Intercept)") %>% 
+  select(Diversity, everything()) %>% 
+  mutate_if(is.double, signif, digits = 3) %>% 
+  pander()
+
+
 hill.estim %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = Estimator, color = molecule, fill = molecule, shape = molecule)) + 
+  ggplot(aes(x = distance, y = Estimator, 
+             ymin = LCL, ymax = UCL,
+             color = molecule, fill = molecule, shape = molecule)) + 
   geom_point(size =3) + 
   # geom_errorbar(size = .5, aes(ymin = Estimator - s.e., ymax = Estimator + s.e.), 
-  #               width = 10, alpha = 0.5) +
-  geom_smooth(method = "lm", aes(linetype = molecule)) + 
-  labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
+  #                width = 10, alpha = 0.5) +
+  geom_smooth(method = "lm", aes(linetype = molecule)) +
+  labs(x = "Reservoir Transect (m)",
        y = "Estimated Diversity (Hill Numbers)") +
   scale_color_manual(values = my.cols) +
   scale_fill_manual(values = my.cols) + 
-  theme(legend.position = c(.89,.94),
+  theme(legend.position = c(.85,.95),
         strip.text = element_text(size = 14),
         strip.background = element_blank()) +
   scale_x_reverse() +
-  facet_grid(Diversity ~ ., scales = "free") + 
-  ggsave("../figures/alpha-diversity.png", dpi = 500, width = 7, height = 1.618*7) + 
-  ggsave("../figures/alpha-diversity.pdf", bg = "white", width = 7, height = 1.618*7)
-
+  facet_grid(Diversity ~ ., scales = "free")
+  
 ```
+So, from the basis of these results, we can make the following conclusions. 
+First, we note that diversity in the total community decays from the stream inlet to the dam of the reservoir. That is, all the lines have a negative slope. 
+However, we do not see this decay in the metabolically active community. 
+Second, we note that the metabolically actively community has much lower diversity than the total community near the soils, but this difference decreases toward the dam. 
+Last, because we quantified diversity across three orders of Hill numbers (q = 0, 1, and 2), we can also say something about the relative importance of rare versus common taxa along the reservoir transect. 
+We see the the significance of the distance-by-molecule interaction term decrease as rare taxa are downweighted in favor of common taxa. This suggests that the differences between the active and total communities along the transect is driven primarily by rare taxa. However, the general trend of higher Simpson diversity across the whole transect suggests that low-activity, but relatively common, taxa are maintained in the reservoir.
 
 ## Alpha Diversity Across Gradient
 ```{r}
@@ -304,7 +271,7 @@ soil <- alpha.div[alpha.div$type == "soil", ]
 
 # Calculate Linear Model
 model.rich <- lm(lake$Estimator ~ lake$distance * lake$molecule)
-
+summary(model.rich)
 # Calculate Confidance Intervals of Model
 newdata.rich <- data.frame(cbind(lake$molecule, lake$distance))
 conf95.rich <- predict(model.rich, newdata.rich, interval="confidence")
@@ -341,8 +308,8 @@ lake %>%
   scale_color_manual(values = my.cols) +
   scale_fill_manual(values = my.cols) +
   scale_y_continuous(limits = c(0, 3000)) + 
-  ggsave("../figures/02_Richness.pdf", bg = "white", width = 7, height = 6) + 
-  ggsave("../figures/02_Richness.png", width = 7, height = 6, dpi = 500)
+  ggsave("figures/02_Richness.pdf", bg = "white", width = 7, height = 6) + 
+  ggsave("figures/02_Richness.png", width = 7, height = 6, dpi = 500)
 ```
 
 ## Track structure across space
@@ -376,8 +343,8 @@ data.frame(scores(ul.pcoa)) %>%
   coord_fixed() +
   labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
        y = paste0("PCoA 2 (", explainvars[2],"%)")) +
-  ggsave("../figures/active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8) +
-  ggsave("../figures/active-tot-pcoa-trajectories.png", width = 8, height = 8)
+  ggsave("figures/active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8) +
+  ggsave("figures/active-tot-pcoa-trajectories.png", width = 8, height = 8)
 
 # animation
 # traj.animate <- data.frame(scores(ul.pcoa)) %>% 
@@ -443,8 +410,8 @@ UL.sim %>%
   scale_x_reverse(limits = c(400,0)) + 
   annotate(geom = "text", x = 50, y = 0.15, size = 6,
            label = paste0("R^2== ",round(summary(fit.Fig.3b)$r.squared, 2)), parse = T) +
-  ggsave("../figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("../figures/03_similarity-to-soils.png", dpi = 500, height = 6, width = 7)
+  ggsave("figures/03_similarity-to-soils.pdf", bg = "white", height = 6, width = 7) +
+  ggsave("figures/03_similarity-to-soils.png", dpi = 500, height = 6, width = 7)
 ```
 
 ## Similarity To Lake Habitat Across Gradient
@@ -557,8 +524,8 @@ tibble(transient_rich = terr.rich, distance = design.dna$distance) %>%
   labs(x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m.)")),
        y = "Soil-Derived Transients") +
   annotate("text", x = 50, y = 750, size = 6, label = paste0("R^2== ",T1.R2), parse = T) +
-  ggsave("../figures/04_transient-rich.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("../figures/04_transient-rich.png", dpi = 500, height = 6, width = 7)
+  ggsave("figures/04_transient-rich.pdf", bg = "white", height = 6, width = 7) +
+  ggsave("figures/04_transient-rich.png", dpi = 500, height = 6, width = 7)
 
 ```
 
@@ -601,7 +568,7 @@ in.lake.plot <- as.data.frame(in.lake.core.not.soils.REL) %>%
   geom_line(alpha = 0.25, stat = "smooth", method = "lm", se = F, show.legend = F) +
   labs(title = "OTUs first found in the reservoir")
 
-plot_grid(in.soil.plot + theme(axis.title.x = element_blank()), in.lake.plot, align = "hv", ncol = 1) + ggsave("../figures/coretaxa.png", height = 10, width = 6)
+plot_grid(in.soil.plot + theme(axis.title.x = element_blank()), in.lake.plot, align = "hv", ncol = 1) + ggsave("figures/coretaxa.png", height = 10, width = 6)
 
 
 data.frame(mean_relabund = colMeans(in.lake.core.from.soils.REL)) %>% 
@@ -735,20 +702,20 @@ addtorow$command <- c("& \\multicolumn{1}{c}{Class} & \\multicolumn{1}{c}{Order}
 core.soil.tab <- xtable(core.soil)
 align(core.soil.tab) <- "crrrrrrr"
 print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, 
-      type= "latex", file="../tables/table1.tex")
+      type= "latex", file="tables/table1.tex")
 print(core.soil.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
 
 core.water.tab <- xtable(core.water)
 align(core.water.tab) <- "crrrrrr"
 print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, 
-      type= "latex", file="../tables/table2.tex")
+      type= "latex", file="tables/table2.tex")
 print(core.water.tab, add.to.row = addtorow, include.colnames = FALSE, comment = FALSE)
 
 ```
 
 
 ## Comparisons of relabunds
-```{r}
+```{r, eval=FALSE}
 high.activity.soil.core <- as.data.frame(core.soil.taxa.DNA.REL.bounds) %>%
   rownames_to_column("OTU") %>% 
   filter(RNA.max > 0) %>% arrange(desc(RNA.max)) %>% 
@@ -832,7 +799,7 @@ read_docx() %>%
   body_add_par("Decreasing away from stream inlet", style = "heading 2") %>% 
   body_add_flextable(soil.decrease.tab) %>% 
   body_end_section_landscape() %>% 
-  print(target = "../tables/soil-core-change-tables.docx")
+  print(target = "tables/soil-core-change-tables.docx")
 ```
 
 ## Word Table
@@ -848,11 +815,11 @@ read_docx() %>%
   body_add_par("Core Reservoir Microbiome (absent from soils)", style = "heading 2") %>% 
   body_add_flextable(water.tab) %>% 
   body_end_section_landscape() %>% 
-  print(target = "../tables/core_tables.docx")
+  print(target = "tables/core_tables.docx")
 ```
 
 ## Figure 5: Soil vs. Lake Comparisons
-```{r}
+```{r, eval=FALSE}
 soil.vs.lake.abunds %>%   
   ggplot(aes(x = max_soil_relabund, y = RNA.max)) +
   geom_vline(xintercept = 1e-3, alpha = 0.1) +
@@ -866,8 +833,8 @@ soil.vs.lake.abunds %>%
   labs(x = "Max Soil Relative Abundance", y = "Max Lake RNA \nRelative Abundance") +
   geom_text_repel(size = 5, data = subset(soil.vs.lake.abunds, soil_is_source == T), 
                    aes(label = Taxon), force = 1.5, alpha = 0.9, segment.alpha = 0.8, box.padding = .75, max.iter = 10000) +
-  ggsave("../figures/05_soil-contribs-to-active-water-otus.pdf", bg = "white", height = 6, width = 7) +
-  ggsave("../figures/05_soil-contribs-to-active-water-otus.png", dpi = 500, height = 6, width = 7)
+  ggsave("figures/05_soil-contribs-to-active-water-otus.pdf", bg = "white", height = 6, width = 7) +
+  ggsave("figures/05_soil-contribs-to-active-water-otus.png", dpi = 500, height = 6, width = 7)
 ```
 
 # Ecosystem Functioning
@@ -876,7 +843,7 @@ soil.vs.lake.abunds %>%
 
 Read in data 
 ```{r results='hide'}
-metab <- read.table("../data/res.grad.metab.txt", sep="\t", header=TRUE)
+metab <- read.table("data/res.grad.metab.txt", sep="\t", header=TRUE)
 colnames(metab) <- c("dist", "BP", "BR")
 BGE <- round((metab$BP/(metab$BP + metab$BR)),3)
 metab <- cbind(metab, BGE)
@@ -930,11 +897,11 @@ plot_grid(BP.plot + theme(axis.title.x = element_blank(), axis.text.x = element_
           BR.plot + theme(axis.title.x = element_blank(), axis.text.x = element_blank(),
                           plot.margin = unit(c(-1, 1, -1, 0), "cm")), 
           BGE.plot + theme(plot.margin = unit(c(-1, 1, 0, 0), "cm")), align = "hv", ncol = 1) + 
-  ggsave("../figures/06_ecosystem-functions.pdf", bg = "white", width = 6, height = 11)
+  ggsave("figures/06_ecosystem-functions.pdf", bg = "white", width = 6, height = 11)
 ```
 
 ## Relation of ecosystem functions and community structure
-```{r}
+```{r, eval=FALSE}
 # detrend the spatial signal
 bp.resid <- resid(lm(BP ~ dist + I(dist)^2, data = metab))
 br.resid <- resid(lm(BR ~ dist, data = metab))
@@ -990,7 +957,7 @@ data.frame(
        y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
   scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
   scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
-  ggsave("../figures/06_soilcore-function.pdf", bg = "white", width = 7, height = 6)
+  ggsave("figures/06_soilcore-function.pdf", bg = "white", width = 7, height = 6)
 
 data.frame(
   water_core = rowSums(OTUsREL[design$molecule == "DNA" & design$type == "water",
@@ -1004,7 +971,7 @@ data.frame(
        y = expression(paste('Metabolism (', mu ,'M C h'^-1* ')'))) +
   scale_color_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
   scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
-  ggsave("../figures/06_nonsoilcore-function.pdf", bg = "white", width = 7, height = 6)
+  ggsave("figures/06_nonsoilcore-function.pdf", bg = "white", width = 7, height = 6)
 
 
 
@@ -1020,7 +987,7 @@ data.frame(transients = resid(lm(terr.REL ~ design.dna$distance)) + mean(terr.RE
   scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
   scale_y_continuous(limits = c(0,3)) +
   theme(plot.margin = unit(c(1,1,0,0), "cm")) +
-  ggsave("../figures/06_transients-function.pdf", bg = "white", width = 7, height = 6)
+  ggsave("figures/06_transients-function.pdf", bg = "white", width = 7, height = 6)
 
 
 core.metab <- data.frame(
@@ -1055,7 +1022,7 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
   scale_fill_viridis("Ecosystem Function", discrete = T, begin = .1, end = .6, option = "D") +
   scale_y_continuous(limits = c(0,3)) +
   theme(plot.margin = unit(c(1,1,0,0), "cm")) +
-  ggsave("../figures/06_core-function.pdf", bg = "white", width = 7, height = 6)
+  ggsave("figures/06_core-function.pdf", bg = "white", width = 7, height = 6)
 
 
 

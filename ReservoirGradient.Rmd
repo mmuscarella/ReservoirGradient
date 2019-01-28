@@ -19,7 +19,8 @@ knitr::opts_chunk$set(
   fig.width = 6, 
   fig.asp = .618,
   fig.align = "center",
-  message = FALSE)
+  message = FALSE,
+  warning = 'hide')
 ```
 
 First, we'll load the packages we'll need for the analysis, as well as some other functions.
@@ -299,7 +300,7 @@ data.frame(scores(ul.pcoa)) %>%
   geom_path(size = 1, alpha = 0.75, arrow = arrow(angle = 20,
                           length = unit(0.35, "cm"),
                           type = "closed"), aes(color = molecule, linetype = molecule)) +
-  geom_point(size = 3, alpha = 0.5, aes(color = molecule, shape = molecule)) + 
+  geom_point(size = 3, alpha = 0.8, aes(color = molecule, shape = molecule)) + 
   scale_color_manual("Community Subset", values = my.cols) +
   geom_segment(data = pc_dists,
                aes(x = DNA_dim1, y = DNA_dim2,
@@ -391,12 +392,13 @@ We find that our model captures most of the variation in community structure \((
 
 
 # Identifying the Soil Bacteria
+Now, we wish to determine whether soil-derived taxa are driving this pattern, and then ask who these influential soil bacteria are. 
+
+To classify soil bacteria, we take an incidence-based approach and classify OTUs as:  
+- present in the soil and present, but never active, in the reservoir  
+- present in the soil and active in the reservoir
 
 ```{r}
-soil.only <- OTUs[, which(colSums(OTUs[-c(1:3),]) == 0)] # what is present only in soil
-lake.n.soil <- OTUs[, setdiff(colnames(OTUs),colnames(soil.only))] # what is present across all samples, but not just in soils
-
-
 # separate lake and soil samples
 lake.total <- OTUs[which(design$molecule == "DNA", design$type == "water"),]
 soil.total <- OTUs[which(design$molecule == "DNA", design$type == "soil"),]
@@ -409,12 +411,15 @@ lake.and.soil.total <- OTUs[which(design$molecule == "DNA", design$type == "wate
 w.dna <- OTUs[which(design$molecule == "DNA" & design$type == "water"), ]
 w.rna <- OTUs[which(design$molecule == "RNA" & design$type == "water"), ]
 
-# pull out the lake rna counds for otus found in lake and soil
+# pull out the lake rna counts for otus found in lake and soil
 lake.and.soil.act <- w.rna[,colnames(lake.and.soil.total)]
 
 # of these lake and soil taxa, which are never active?
 nvr.act <- which(colSums(lake.and.soil.act) == 0)
+```
 
+We calculate the richness of the soil taxa that are never active in the lake. We calculate richness from the DNA-based samples. 
+```{r}
 # pull out their dna abundances and calculate richness
 terr.lake <- w.dna[ , c(names(nvr.act))]
 terr.rich <- rowSums((terr.lake > 0) * 1)
@@ -424,20 +429,14 @@ terr.rich.log <- log10(terr.rich)
 terr.REL.log <- log10(terr.REL)
 
 terr.mod1 <- lm(terr.rich.log ~ design.dna$distance)
-summary(terr.mod1)
+#summary(terr.mod1)
 T1.R2 <- round(summary(terr.mod1)$r.squared, 2)
 T1.int <- terr.mod1$coefficients[1]
 T1.slp <- terr.mod1$coefficients[2]
 pander(terr.mod1)
-
-# terr.mod2 <- lm(terr.REL.log ~ design.dna$distance)
-# summary(terr.mod2)
-# T2.R2 <- round(summary(terr.mod2)$r.squared, 2)
-# T2.int <- terr.mod2$coefficients[1]
-# T2.slp <- terr.mod2$coefficients[2]
 ```
+We find distance is a highly significant predictor of the richness of these soil-derived taxa (on a log-scale). 
 
-## Figure 4: Transient decay
 ```{r plot_transient}
 tibble(transient_rich = terr.rich, distance = design.dna$distance) %>% 
   ggplot(aes(x = distance, y = transient_rich)) + 
@@ -447,22 +446,25 @@ tibble(transient_rich = terr.rich, distance = design.dna$distance) %>%
   scale_y_log10() +
   annotation_logticks(sides = "l") +
   labs(x = "Reservoir Transect (m)",
-       y = "Soil-derived Taxa Richness") +
+       y = "Richness of \nSoil-derived Taxa") +
   annotate("text", x = 50, y = 750, size = 6, label = paste0("R^2== ",T1.R2), parse = T) 
 
 ```
 
-# Define Core Lake Taxa
+# What is the fate of soil-derived taxa in the reservoir? 
+So, we observe that most soil-derived taxa appear to decay once they enter the reservoir. Do any soil-derived taxa persist in the active bacterial community of the reservoir and do they rise to high relative abundances?
+
+
 ```{r core_taxa}
 # identify otus in soil samples and lake samples
 in.soil <- OTUs[, which(colSums(OTUs[c(1:3),]) > 0 )]
-in.lake <- OTUs[, which(colSums(OTUs[-c(1:3),]) > 0)]
+#in.lake <- OTUs[, which(colSums(OTUs[-c(1:3),]) > 0)]
 
 # isolate just the rna water samples and convert to presence-absence
-in.lake.rna <- in.lake[which(design$molecule == "RNA" & design$type == "water"), ]
+in.lake.rna <- OTUs[which(design$molecule == "RNA" & design$type == "water"), ]
 in.lake.rna.pa <- (in.lake.rna > 0) * 1
 
-# define the 'core' taxa as otus present in 90% of samples
+# define the 'core' taxa as otus present in 80% of samples
 in.lake.core <- w.dna[, which((colSums(in.lake.rna.pa) / nrow(in.lake.rna.pa)) >= 0.8)]
 
 # of the core, how many are also in the soil samples?
@@ -471,7 +473,7 @@ in.lake.core.from.soils <- in.lake.core[, intersect(colnames(in.lake.core), coln
 # of the core which are not in the soil samples
 in.lake.core.not.soils <- in.lake.core[, setdiff(colnames(in.lake.core), colnames(in.soil))]
 
-
+# Find the relative abundance of the core taxa and prepare data frame to plot
 in.lake.core.from.soils.REL <- in.lake.core.from.soils / rowSums(w.dna)
 
 in.soil.to.plot <- as.data.frame(in.lake.core.from.soils.REL) %>% 
@@ -490,27 +492,32 @@ in.lake.to.plot <- as.data.frame(in.lake.core.not.soils.REL) %>%
 ```
 
 Now, lets plot the abundances of the OTUs across the reservoir and split them up into whether they were recovered in soils or not. 
-```{r coreplot}
+```{r coreplot, fig.asp=1/.618}
 bind_rows(in.soil.to.plot, in.lake.to.plot) %>% 
   ggplot(aes(x = distance, y = rel_abundance, color = otu_id)) + 
   labs(x = "Reservoir Transect (m)", 
        y = "OTU Relative Abundance") +
-  geom_line(alpha = 0.25, stat = "smooth", method = "lm", se = F, show.legend = F) +
-  facet_wrap(~ found, ncol = 1)
+  geom_line(alpha = 0.5, stat = "smooth", method = "lm", se = F, show.legend = F) +
+  scale_y_log10() +
+  scale_x_reverse() + 
+  facet_wrap(~ found, ncol = 1, 
+             labeller = as_labeller(c(
+               `lake` = "Undetected in soils",
+               `soils` = "Present in soils")))
 ```
 
+From this figure, we note a few important points. First, we observe that core reservoir taxa that are not detected in the soil samples tend to increase in relative abundance along the reservoir transect.  We also note that for the taxa that are present in the soil samples, some tend to increase drastically, while others tend to increase, along the transect. This suggests that there may be two classes of soil-derived OTUs that contribute to reservoir bacterial diversity:  
+- taxa where the reservoir is a sink (i.e., maintained via mass effects from the soils)
+- aquatic taxa seeded by populations stored in the soils 
+
 ```{r}
-data.frame(mean_relabund = colMeans(in.lake.core.from.soils.REL)) %>% 
-  rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
-  mutate(Taxon = paste(Phylum, Class, Order)) %>% 
-  arrange(desc(mean_relabund)) %>% 
-  ggplot() + 
-  geom_bar(aes(x = Taxon, y = mean_relabund), stat = "identity") +
-  coord_flip()
+# model distance effect on rel abundance to get slope and pval
 soil.core.mods <- apply(in.lake.core.from.soils.REL, MARGIN = 2, 
     FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
 rownames(soil.core.mods) <- c("slope", "pval")
-soil.core.decresing <- as.data.frame(t(soil.core.mods)) %>% 
+
+# classify otus as significantly increasing or decreasing along reservoir
+soil.core.decreasing <- as.data.frame(t(soil.core.mods)) %>% 
   rownames_to_column("OTU") %>% 
   filter(pval < 0.05 & slope > 0) %>%   # rel abund decreases toward dam
   left_join(OTU.tax)
@@ -519,14 +526,8 @@ soil.core.increasing <- as.data.frame(t(soil.core.mods)) %>%
   filter(pval < 0.05 & slope < 0) %>%   # rel abund increases toward dam
   left_join(OTU.tax)
 
-data.frame(mean_relabund = colMeans(in.lake.core.not.soils.REL)) %>% 
-  rownames_to_column(var = "OTU") %>% left_join(OTU.tax) %>% 
-  mutate(Taxon = paste(Phylum, Class, Order)) %>% 
-  arrange(desc(mean_relabund)) %>% 
-  ggplot() + 
-  geom_bar(aes(x = Taxon, y = mean_relabund), stat = "identity") +
-  coord_flip()
-nonsoil.core.mods <- apply(in.lake.core.not.soils.REL, MARGIN = 2, FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
+nonsoil.core.mods <- apply(in.lake.core.not.soils.REL, MARGIN = 2, 
+    FUN = function(x) summary(lm(x ~ design.dna$distance))$coefficients[2,c(1,4)])
 rownames(nonsoil.core.mods) <- c("slope", "pval")
 nonsoil.core.decreasing <- as.data.frame(t(nonsoil.core.mods)) %>% 
   rownames_to_column("OTU") %>% 
@@ -536,26 +537,71 @@ nonsoil.core.increasing <- as.data.frame(t(nonsoil.core.mods)) %>%
   rownames_to_column("OTU") %>% 
   filter(pval < 0.05 & slope < 0) %>%   # rel abund increases toward dam
   left_join(OTU.tax)
+```
 
-as.data.frame(OTUsREL[,nonsoil.core.increasing$OTU]) %>% rownames_to_column("sampleID") %>% 
+Now we will visualize the significant taxa 
+```{r otu_summary_tables}
+pander(nonsoil.core.decreasing, caption = "Core taxa not found in soils that get rarer along the transect.")
+```
+
+```{r }
+pander(nonsoil.core.increasing, caption = "Core taxa not found in soils that get more common along the transect.")
+```
+
+```{r}
+pander(soil.core.decreasing, caption = "Core taxa found in soils that get rarer along the transect.")
+```
+
+```{r}
+pander(soil.core.increasing, caption = "Core taxa found in soils that get more common along the transect.")
+```
+
+
+```{r sig_taxa, fig.asp=1/.618}
+as.data.frame(OTUsREL[,nonsoil.core.increasing$OTU]) %>% 
+  rownames_to_column("sampleID") %>% 
   left_join(rownames_to_column(design, "sampleID")) %>% 
   gather(OTU, rel_abund, -station, -molecule, -type, -distance, -sampleID) %>% 
   filter(molecule == "DNA") %>% left_join(OTU.tax) %>% 
-  mutate(taxon = paste(Class, Order, Family)) %>% 
-  ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  scale_x_reverse()
-
-as.data.frame(OTUsREL[,soil.core.increasing$OTU]) %>% rownames_to_column("sampleID") %>% 
-  left_join(rownames_to_column(design, "sampleID")) %>% 
-  gather(OTU, rel_abund, -station, -molecule, -type, -distance, -sampleID) %>% 
-  filter(molecule == "DNA") %>% left_join(OTU.tax) %>% 
-  mutate(taxon = paste(Class, Order, Family)) %>% 
+  mutate(taxon = paste(Class, Order)) %>% 
   ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
   geom_point(alpha = 0.5) + 
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_reverse()
+  geom_smooth(method = "loess", se = FALSE) + 
+  scale_x_reverse() +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1)) +
+  labs(x = "Reservoir Transect (m)",
+       y = "Relative Abundance")
+
+as.data.frame(OTUsREL[,soil.core.increasing$OTU]) %>% 
+  rownames_to_column("sampleID") %>% 
+  left_join(rownames_to_column(design, "sampleID")) %>% 
+  gather(OTU, rel_abund, -station, -molecule, -type, -distance, -sampleID) %>% 
+  filter(molecule == "DNA") %>% left_join(OTU.tax) %>% 
+  mutate(taxon = paste(Class, Order)) %>% 
+  ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "loess", se = FALSE) +
+  scale_x_reverse() +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1)) +
+  labs(x = "Reservoir Transect (m)",
+       y = "Relative Abundance")
+
+as.data.frame(OTUsREL[,soil.core.decreasing$OTU]) %>% 
+  rownames_to_column("sampleID") %>% 
+  left_join(rownames_to_column(design, "sampleID")) %>% 
+  gather(OTU, rel_abund, -station, -molecule, -type, -distance, -sampleID) %>% 
+  filter(molecule == "DNA") %>% left_join(OTU.tax) %>% 
+  mutate(taxon = paste(Class, Order)) %>% 
+  ggplot(aes(x = distance, y = rel_abund, color = taxon)) + 
+  geom_point(alpha = 0.5) + 
+  geom_smooth(method = "loess", se = FALSE) + 
+  scale_x_reverse() +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1)) +
+  labs(x = "Reservoir Transect (m)",
+       y = "Relative Abundance")
 
 
 # how much do the different core components contribute to total abundances
@@ -565,7 +611,7 @@ in.lake.core.water.REL <- rowSums(in.lake.core.not.soils) / rowSums(w.dna)
 
 
 ## Taxonomic Analysis
-```{r, results="asis"}
+```{r, results="asis", include=FALSE}
 # Taxa comprising total lake 'core', those from soils, and those not from soils
 core.taxa <- OTU.tax[OTU.tax$OTU %in% colnames(in.lake.core),]
 
@@ -756,8 +802,8 @@ read_docx() %>%
   print(target = "tables/core_tables.docx")
 ```
 
-## Figure 5: Soil vs. Lake Comparisons
-```{r soil_lake_plot}
+## Soil vs. Lake Comparisons
+```{r soil_lake_plot, fig.asp=1, eval = FALSE}
 soil.vs.lake.abunds %>% 
   mutate(Genus = str_replace(Genus, "_unclassified", " sp.")) %>% 
   filter(max_soil_relabund > 0) %>% 
@@ -810,30 +856,37 @@ BGE.R2
 BP.plot <- ggplot(metab, aes(x = dist, y = BP)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
-  annotate(geom = "text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BP.R2), parse = T) +
+  annotate(geom = "text", x = 50, y = 1.5, size = 5, 
+           label = paste0("R^2== ",BP.R2), parse = T) +
   labs(y = expression(paste('BP (', mu ,'M C h'^-1* ')')), 
-       x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+       x = "Reservoir Transect (m)") +
   scale_x_reverse(limits = c(400,0))
 BR.plot <- ggplot(metab, aes(x = dist, y = BR)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x, color = "black") + 
-  annotate("text", x = 50, y = 1.5, size = 5, label = paste0("R^2== ",BR.R2), parse = T ) +
+  annotate("text", x = 50, y = 1.5, size = 5, 
+           label = paste0("R^2== ",BR.R2), parse = T ) +
   labs(y = expression(paste('BR (', mu ,'M C h'^-1* ')')), 
-       x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+       x = "Reservoir Transect (m)") +
   scale_x_reverse(limits = c(400,0))
 BGE.plot <- ggplot(metab, aes(x = dist, y = BGE)) + 
   geom_point() + 
   geom_smooth(method = "lm", formula = y ~ x + I(x^2), color = "black") +
-  annotate("text", x = 50, y = .5, size = 5, label = paste0("R^2== ",BGE.R2), parse = T ) +
+  annotate("text", x = 50, y = .5, size = 5, 
+           label = paste0("R^2== ",BGE.R2), parse = T ) +
   labs(y = "BGE", 
-       x = (expression("Soil" %->% "Riverine" %->% "Lacustrine" %->% "Dam (m)"))) +
+       x = "Reservoir Transect (m)") +
   scale_x_reverse(limits = c(400,0))
+```
+
+
+```{r metab_plot, fig.asp=1/.618}
 plot_grid(BP.plot + theme(axis.title.x = element_blank(), axis.text.x = element_blank(), 
                           plot.margin = unit(c(1, 1, -1, 0), "cm")), 
           BR.plot + theme(axis.title.x = element_blank(), axis.text.x = element_blank(),
                           plot.margin = unit(c(-1, 1, -1, 0), "cm")), 
-          BGE.plot + theme(plot.margin = unit(c(-1, 1, 0, 0), "cm")), align = "hv", ncol = 1) + 
-  ggsave("figures/06_ecosystem-functions.pdf", bg = "white", width = 6, height = 11)
+          BGE.plot + theme(plot.margin = unit(c(-1, 1, 0, 0), "cm")), 
+          align = "hv", ncol = 1, labels = "AUTO")
 ```
 
 ## Relation of ecosystem functions and community structure
@@ -963,99 +1016,4 @@ core.metab %>% select(-BGE, -BP, -BR, -total_core) %>% gather(metab, value, -tot
 
 
 ```
-
-# Analyze environmental controls
-```{r}
-# library(AEM)
-# # pull out the in-lake samples
-# in.lake.dna.samples <- which(design$type == "water" & design$molecule == "DNA" & design$distance < 300)
-# env <- env.dat[which(env.dat$sample.ID %in% design$station[in.lake.dna.samples]),c("temp", "pH", "DO", "TP", "chla")]
-# env <- scale(env)
-# geo_dist <- as.vector(dist(design[in.lake.dna.samples,]$distance))
-# env_dist <- as.vector(dist(env))
-# com_dist <- as.vector(vegdist(decostand(lake.tot, "total")))
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = env_dist, y = com_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = geo_dist, y = com_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = env_dist, y = geo_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# 
-# # construct asymetric eigenvector maps along transect
-# n <- nrow(env)
-# aem.out <- aem.time(n, moran = T, plot.moran = T)
-# colnames(aem.out$aem) <- paste0("AEM", seq(1, n-1))
-# aems <- aem.out$aem[,which(aem.out$Moran$p.value < 0.05)]
-# 
-# 
-# prcomp(env, scale. = T)
-# round(cor(cbind(aems, env)),2)
-# lake.tot <- OTUs[in.lake.dna.samples,]
-# 
-# vp.tot.pos <- varpart(lake.tot, aems[,c("AEM1", "AEM2", "AEM3")], env, transfo = "hellinger")
-# vp.tot.pos
-# plot(vp.tot.pos)
-# 
-# vp.tot.neg <- varpart(lake.tot, aems[,c("AEM8", "AEM9", "AEM10")], env, transfo = "hellinger")
-# vp.tot.neg
-# plot(vp.tot.neg)
-# 
-# # rna
-# in.lake.rna.samples <- which(design$type == "water" & design$molecule == "RNA" & design$distance < 300)
-# env <- env.dat[which(env.dat$sample.ID %in% design$station[in.lake.rna.samples]),c("temp", "pH", "DO", "TP", "chla")]
-# env <- scale(env)
-# 
-# # construct asymetric eigenvector maps along transect
-# n <- nrow(env)
-# aem.out <- AEM::aem.time(n, moran = T, plot.moran = T)
-# colnames(aem.out$aem) <- paste0("AEM", seq(1, n-1))
-# aems <- aem.out$aem[,which(aem.out$Moran$p.value < 0.05)]
-# 
-# prcomp(env, scale. = T)
-# round(cor(cbind(aems, env)),2)
-# lake.act <- OTUs[in.lake.rna.samples,]
-# 
-# geo_dist <- as.vector(dist(design[in.lake.rna.samples,]$distance))
-# env_dist <- as.vector(dist(env))
-# com_dist <- as.vector(vegdist(decostand(lake.act, "total")))
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = env_dist, y = com_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = geo_dist, y = com_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# data.frame(env_dist = resid(lm(env_dist ~ geo_dist)), 
-#            com_dist = com_dist,
-#            geo_dist = resid(lm(geo_dist ~ env_dist))) %>% 
-#   ggplot(aes(x = env_dist, y = geo_dist)) + 
-#   geom_point(alpha = 0.5) + 
-#   geom_smooth(method = 'lm')
-# 
-# vp.act.pos <- varpart(lake.act, aems[,c("AEM1", "AEM2", "AEM3")], env, transfo = "hellinger")
-# vp.act.pos
-# plot(vp.act.pos)
-# 
-# vp.act.neg <- varpart(lake.act, aems[,c("AEM8", "AEM9", "AEM10")], env, transfo = "hellinger")
-# vp.act.neg
-# plot(vp.act.neg)
-```
-
 

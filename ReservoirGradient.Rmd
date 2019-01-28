@@ -17,8 +17,7 @@ output:
 ```{r setup, echo=FALSE}
 knitr::opts_chunk$set(
   fig.width = 6, 
-  fig.asp = .618, 
-  out.width = "70%", 
+  fig.asp = .618,
   fig.align = "center",
   message = FALSE)
 ```
@@ -55,7 +54,7 @@ my.cols <- RColorBrewer::brewer.pal(n = 4, name = "Greys")[3:4]
 
 # Set theme for figures in the paper
 theme_set(theme_classic() + 
-  theme(axis.title = element_text(size = 20),
+  theme(axis.title = element_text(size = 16),
         axis.title.x = element_text(margin = margin(t = 15, b = 15)),
         axis.title.y = element_text(margin = margin(l = 15, r = 15)),
         axis.text = element_text(size = 14),
@@ -70,7 +69,7 @@ theme_set(theme_classic() +
         axis.ticks.length = unit(.1, "in"),
         panel.border = element_rect(color = "black", fill = NA, size = 1.5),
         legend.title = element_blank(),
-        legend.text = element_text(size = 16),
+        legend.text = element_text(size = 14),
         strip.text = element_text(size = 14),
         strip.background = element_blank()
         ))
@@ -136,16 +135,26 @@ OTUsREL.log <- decostand(OTUs, method = "log")
 # Reservoir environmental gradients
 Just to see if there are any strong underlying resource or nutrient gradients in the reservoir, we'll plot them along the distance of the reservoir.
 ```{r env_plot, fig.asp=1/.618}
-env.dat %>% select(dist.dam, DO, pH, TP, color, chla) %>% 
+facet.labs <- c(`chla` = "Chlorophyll-a",
+                `color` = "Color",
+                `DO` = "Dissolved Oxygen",
+                `pH` = "pH",
+                `TP` = "Total Phosphorus")
+
+env.dat %>% select(dist.dam, DO, pH, TP, chla) %>% 
   gather(variable, value, -dist.dam) %>% 
   ggplot(aes(x = dist.dam, y = value)) + 
   geom_point() + 
   geom_smooth(method = "lm", color = "black") + 
-  facet_grid(variable ~., scales = "free") + 
-  theme(strip.background = element_blank(), strip.text = element_text(size = 14)) + 
+  facet_grid(variable ~., scales = "free", switch = "y", 
+             labeller = as_labeller(facet.labs)) + 
+  theme(strip.background = element_blank(), 
+        strip.text = element_text(size = 14),
+        strip.placement = "outside") + 
   labs(x = "Reservoir Transect (m)",
-       y = "Value") +
-  scale_x_reverse()
+       y = "") +
+  scale_x_reverse() +
+  scale_y_continuous()
 ```
 
 So, there are some weak gradients, but nothing too prevailing. 
@@ -180,7 +189,10 @@ alpha.div <- cbind(design, S.obs, simpsE, shan, exp.shan)
 divestim <- read_rds("intermediate-data/inext-output-999boots.rda")
 divestim.df <- fortify(divestim) %>% 
   mutate(habitat = str_to_title(design[as.character(site),"type"]))
+```
 
+Here is the resulting curve, showing the higher diversity in soil samples relative to the lake samples. 
+```{r rare_extrap_plot}
 divestim.df %>% 
   ggplot(aes(x = x, y = y, 
              ymin = y.lwr, ymax = y.upr, 
@@ -189,14 +201,14 @@ divestim.df %>%
   geom_line(data=subset(divestim.df, method == "interpolated"), size = 1, alpha = .8) +
   geom_line(alpha = 1, linetype = "dashed") +
   scale_x_continuous(labels = scales::comma) +
-  labs(x = "Sample Size", y = "Species Diversity") +
-  theme(legend.position =  c(.9,.95)) +
+  labs(x = "Sample Size", y = "Estimated Richness") +
+  theme(legend.position =  c(.88,.5)) +
   scale_color_grey(end = .7) +
   scale_fill_grey(end = .7)
 ```
 
 Next, we'll extract the estimates for the Hill numbers at different levels of q, which differentially weight common versus rare species.
-```{r hill_numbers, fig.asp=1/.618}
+```{r hill_numbers}
 hill.estim <- divestim$AsyEst %>% filter(Diversity == "Species richness") %>% 
   left_join(rownames_to_column(alpha.div), by = c("Observed" = "S.obs")) %>% 
   select(Site, rowname, station, molecule, type, distance) %>% 
@@ -211,16 +223,19 @@ hill.water.mod.rich <- lm(Estimator ~ distance * molecule, data = hill.water.ric
 hill.water.mod.shan <- lm(Estimator ~ distance * molecule, data = hill.water.shan)
 hill.water.mod.simp <- lm(Estimator ~ distance * molecule, data = hill.water.simp)
 
-summary(hill.water.mod.rich)
-summary(hill.water.mod.shan)
-summary(hill.water.mod.simp)
+# summary(hill.water.mod.rich)
+# summary(hill.water.mod.shan)
+# summary(hill.water.mod.simp)
 
+# tidy up the model output
 hill.water.mods <- as_tibble(rbind.data.frame(
-  tidy(hill.water.mod.rich) %>% add_column(Diversity = "Species richness"),
-  tidy(hill.water.mod.shan) %>% add_column(Diversity = "Shannon diversity"),
-  tidy(hill.water.mod.simp) %>% add_column(Diversity = "Simpson diversity")
+  tidy(hill.water.mod.rich) %>% add_column(Diversity = "Richness"),
+  tidy(hill.water.mod.shan) %>% add_column(Diversity = "Shannon"),
+  tidy(hill.water.mod.simp) %>% add_column(Diversity = "Simpson")
 ))
+```
 
+```{r div_model_table}
 # Summary table of the model results. 
 hill.water.mods %>% 
   group_by(Diversity) %>% 
@@ -231,10 +246,10 @@ hill.water.mods %>%
          "p-value" = p.value) %>% 
   filter(Term != "(Intercept)") %>% 
   select(Diversity, everything()) %>% 
-  mutate_if(is.double, signif, digits = 3) %>% 
-  pander()
+  pander(round = 2)
+```
 
-
+```{r hill_div_plot, fig.asp=1/.618}
 hill.estim %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = distance, y = Estimator, 
@@ -245,13 +260,13 @@ hill.estim %>% filter(type == "water") %>%
   #                width = 10, alpha = 0.5) +
   geom_smooth(method = "lm", aes(linetype = molecule)) +
   labs(x = "Reservoir Transect (m)",
-       y = "Estimated Diversity (Hill Numbers)") +
+       y = "Estimated Diversity (Species Equivalents)") +
   scale_color_manual(values = my.cols) +
   scale_fill_manual(values = my.cols) + 
-  theme(legend.position = c(.85,.95)) +
+  theme(legend.position = c(.88,.95)) +
   scale_x_reverse() +
-  facet_grid(Diversity ~ ., scales = "free")
-  
+  facet_wrap(~ Diversity, scales = "free", ncol = 1)
+  #facet_grid(Diversity ~ ., scales = "free")
 ```
 So, from the basis of these results, we can make the following conclusions. 
 First, we note that diversity in the total community decays from the stream inlet to the dam of the reservoir. That is, all the lines have a negative slope. 
@@ -263,7 +278,7 @@ We see the the significance of the distance-by-molecule interaction term decreas
 
 ## How does community structure change along the gradient?
 First, we'll just get an overview of how the communities look along the aquatic transect. 
-```{r ordination}
+```{r ordination, fig.asp=1}
 ul.pcoa <- cmdscale(vegdist(OTUsREL.log, method="bray"), 2, eig = T, add = T)
 explainvars <- round(eigenvals(ul.pcoa)[c(1,2)]/sum(eigenvals(ul.pcoa)),3) *100
 water.pcvals <- data.frame(scores(ul.pcoa)) %>% 
@@ -281,10 +296,10 @@ data.frame(scores(ul.pcoa)) %>%
   arrange(desc(distance)) %>% filter(type == "water") %>% 
   mutate(molecule = ifelse(molecule == "DNA", "Total", "Active")) %>% 
   ggplot(aes(x = Dim1, y = Dim2)) +
-  geom_point(size = 3, alpha = 0.5, aes(color = molecule, shape = molecule)) + 
-  geom_path(size = 1.2, alpha = 0.75, arrow = arrow(angle = 20,
+  geom_path(size = 1, alpha = 0.75, arrow = arrow(angle = 20,
                           length = unit(0.35, "cm"),
                           type = "closed"), aes(color = molecule, linetype = molecule)) +
+  geom_point(size = 3, alpha = 0.5, aes(color = molecule, shape = molecule)) + 
   scale_color_manual("Community Subset", values = my.cols) +
   geom_segment(data = pc_dists,
                aes(x = DNA_dim1, y = DNA_dim2,
@@ -294,11 +309,11 @@ data.frame(scores(ul.pcoa)) %>%
   labs(x = paste0("PCoA 1 (", explainvars[1],"%)"),
        y = paste0("PCoA 2 (", explainvars[2],"%)")) +
   theme(legend.position = "none") +
-  annotate(geom = "text", x = .2, y = -.3, label = "Active", size = 6) +
-  annotate(geom = "text", x = -.3, y = .1, label = "Total", size = 6) +
-  ggsave("figures/active-tot-pcoa-trajectories.pdf", bg = "white", width = 8, height = 8) +
-  ggsave("figures/active-tot-pcoa-trajectories.png", width = 8, height = 8)
+  annotate(geom = "text", x = .2, y = -.33, label = "Active", size = 6) +
+  annotate(geom = "text", x = -.3, y = .1, label = "Total", size = 6)
+```
 
+```{r ordination_animate, eval = FALSE, include=FALSE}
 # animation
 # traj.animate <- data.frame(scores(ul.pcoa)) %>% 
 #   rownames_to_column("name") %>% 
@@ -325,6 +340,7 @@ To test this, we'll look at \(\beta\)-diversity along the gradient with respect 
 If we see a decay in similarity to soils, this suggests soil taxa are having a comparatively lower influence with distance from the inlet. 
 
 ## Similarity To Terrestrial Habitat Across Gradient (Terrestrial Influence)
+Here, we fit a linear model to the similarity of the aquatic community to the soil community. 
 ```{r tab_similarity_to_soils}
 # Similarity to Soil Sample
 UL.bray      <- 1-as.matrix(vegdist(OTUsREL.log, method="bray"))
@@ -362,15 +378,16 @@ UL.sim %>%
              color = molecule, fill = molecule, shape = molecule)) +
   geom_point(alpha = 0.8, size = 3, show.legend = T) + 
   geom_smooth(method = "lm", show.legend = T, aes(linetype = molecule)) + 
-  labs(y = "Similarity to Soil Community", 
+  labs(y = str_wrap("Similarity to Soil Community", width = 20), 
        x = "Reservoir Transect (m)") + 
   scale_color_manual(values = my.cols) + 
   scale_fill_manual(values = my.cols) +
-  theme(legend.position = c(0.9, 0.9)) +
+  theme(legend.position = c(0.85, 0.85)) +
   scale_x_reverse(limits = c(400,0)) + 
   annotate(geom = "text", x = 50, y = 0.15, size = 6,
            label = paste0("R^2== ",round(summary(model.terr)$r.squared, 2)), parse = T)
 ```
+We find that our model captures most of the variation in community structure \((R^2 = `r summary(model.terr)$r.squared`)\). We note a significant influence of distance on community similarity and the presence of a significant interaction between distance and whether the comparison is for  active or total bacterial communities. This indicates that total communities decay faster with distance to soils than active communities do, which might be explained by the large difference in initial intercept. Active communities are always highly dissimilar to soil communities and remain so across the lake, while total lake communities are initially similar to soils, but this influence dissipates with distance into the reservoir. 
 
 ## What about within-lake \(\beta\)-diversity?
 An alternative reason for convergence of aquatic communities along the reservoir and decay in similarity to soils is that niche selection is acting on aquatic community structure and driving shifts in composition along the gradient. 
@@ -390,12 +407,13 @@ UL.sim2 %>% gather(DNA, RNA, key = "comparison", value = "similarity") %>%
   ggplot(aes(x = distance, y = similarity, color = molecule, fill = molecule)) +
   geom_point() + 
   geom_smooth(method = "lm") + 
-  labs(y = "Similarity to lake community", 
+  labs(y = str_wrap("Similarity to Lake Community", width = 25), 
        x = "Reservoir Transect (m)") +
   scale_x_reverse() +
   scale_color_manual("Community Subset", values = my.cols) +
   scale_fill_manual("Community Subset", values = my.cols) + 
-  facet_wrap(~ comparison)
+  facet_wrap(~ comparison) +
+  theme(legend.position = "top")
 
 # Calculate Linear Model
 model.lake1 <- lm(UL.sim2$DNA ~ UL.sim2$distance * UL.sim2$molecule)
@@ -419,6 +437,7 @@ summary(model.lake2)
 ```
 
 # Identifying the Soil Bacteria
+
 ```{r}
 soil.only <- OTUs[, which(colSums(OTUs[-c(1:3),]) == 0)] # what is present only in soil
 lake.n.soil <- OTUs[, setdiff(colnames(OTUs),colnames(soil.only))] # what is present across all samples, but not just in soils

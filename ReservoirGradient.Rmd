@@ -389,52 +389,6 @@ UL.sim %>%
 ```
 We find that our model captures most of the variation in community structure \((R^2 = `r summary(model.terr)$r.squared`)\). We note a significant influence of distance on community similarity and the presence of a significant interaction between distance and whether the comparison is for  active or total bacterial communities. This indicates that total communities decay faster with distance to soils than active communities do, which might be explained by the large difference in initial intercept. Active communities are always highly dissimilar to soil communities and remain so across the lake, while total lake communities are initially similar to soils, but this influence dissipates with distance into the reservoir. 
 
-## What about within-lake \(\beta\)-diversity?
-An alternative reason for convergence of aquatic communities along the reservoir and decay in similarity to soils is that niche selection is acting on aquatic community structure and driving shifts in composition along the gradient. 
-To test this idea, we look at the similarity of the active and total communities to the samples taken at the dam of the reservoir, which we expect to have a low influence of soil taxa. 
-
-```{r plot_similarity_to_lake}
-# Similarity to Lake Samples 1 and 2
-UL.bray2      <- 1 - as.matrix(vegdist(OTUsREL.log, method="bray"))
-UL.bray.lake2 <- UL.bray[-c(1:3), 4:7]
-UL.sim2       <- cbind(design[-c(1:3), ], 
-                       "DNA" = apply(UL.bray.lake2[,c(1,3)], 1, mean), 
-                       "RNA" = apply(UL.bray.lake2[,c(2,4)], 1, mean))
-
-UL.sim2 %>% gather(DNA, RNA, key = "comparison", value = "similarity") %>% 
-  mutate(molecule = ifelse(molecule == "DNA", "Total", "Active"),
-         comparison = ifelse(comparison == "DNA", "Total", "Active")) %>% 
-  ggplot(aes(x = distance, y = similarity, color = molecule, fill = molecule)) +
-  geom_point() + 
-  geom_smooth(method = "lm") + 
-  labs(y = str_wrap("Similarity to Lake Community", width = 25), 
-       x = "Reservoir Transect (m)") +
-  scale_x_reverse() +
-  scale_color_manual("Community Subset", values = my.cols) +
-  scale_fill_manual("Community Subset", values = my.cols) + 
-  facet_wrap(~ comparison) +
-  theme(legend.position = "top")
-
-# Calculate Linear Model
-model.lake1 <- lm(UL.sim2$DNA ~ UL.sim2$distance * UL.sim2$molecule)
-model.lake2 <- lm(UL.sim2$RNA ~ UL.sim2$distance * UL.sim2$molecule)
-summary(model.lake1)
-summary(model.lake2)
-
-# # Calculate Confidance Intervals of Model
-# newdata.lake <- data.frame(cbind(UL.sim2$molecule, UL.sim2$distance))
-# conf95.lake <- predict(model.lake1, newdata.lake, interval="confidence")
-# 
-# # Dummy Variables Regression Model ("Lake Influence")
-# D3 <- (UL.sim2$molecule == "RNA")*1
-# fit.Fig.3c <- lm(UL.sim2$DNA ~ UL.sim2$distance + D3 + UL.sim2$distance*D3)
-# # summary(fit.Fig.3c)
-# 
-# DNA.int.3c <- fit.Fig.3c$coefficients[1]
-# DNA.slp.3c <- fit.Fig.3c$coefficients[2]
-# RNA.int.3c <- DNA.int.3c + fit.Fig.3c$coefficients[3]
-# RNA.slp.3c <- DNA.slp.3c + fit.Fig.3c$coefficients[4]
-```
 
 # Identifying the Soil Bacteria
 

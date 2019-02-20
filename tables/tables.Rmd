@@ -1,0 +1,27 @@
+---
+title: "tables"
+author: "Nathan I. Wisnoski"
+date: "2/19/2019"
+output: word_document
+---
+--------------------------------------------------------------------------------
+ Diversity           Term           Estimate   Std. Error   Statistic   p-value 
+----------- ---------------------- ---------- ------------ ----------- ---------
+ Richness          distance           5.21        0.54        9.66         0    
+
+ Richness        moleculeRNA         104.9       166.2        0.63       0.53   
+
+ Richness    distance:moleculeRNA    -5.12        0.72        -7.15        0    
+
+  Shannon          distance           0.29        0.11        2.75       0.01   
+
+  Shannon        moleculeRNA         -35.51      32.34        -1.1       0.28   
+
+  Shannon    distance:moleculeRNA    -0.29        0.14        -2.08      0.05   
+
+  Simpson          distance           0.05        0.03        1.66       0.11   
+
+  Simpson        moleculeRNA         -22.19       9.65        -2.3       0.03   
+
+  Simpson    distance:moleculeRNA    -0.04        0.04        -1.06       0.3   
+--------------------------------------------------------------------------------
